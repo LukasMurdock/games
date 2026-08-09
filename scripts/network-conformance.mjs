@@ -79,7 +79,7 @@ try {
   const replayLanding = await hostContext.newPage();
   await replayLanding.goto(clients[0].responseUrl);
   await replayLanding.waitForFunction(
-    () => document.querySelector("#direct-action-status")?.textContent?.includes("consumed"),
+    () => document.querySelector("#direct-action-status")?.textContent?.includes("already used"),
     undefined,
     { timeout: 10_000 },
   );
@@ -124,18 +124,18 @@ async function joinClient(host, client, index) {
     (slotIndex) => {
       const link = document.querySelectorAll(".host-slot")[slotIndex]
         ?.querySelector(".host-slot__invite");
-      return link instanceof HTMLAnchorElement && link.href.includes("#invite=");
+      return link instanceof HTMLElement && link.dataset.url?.includes("#invite=");
     },
     index,
     { timeout: 20_000 },
   );
-  const inviteUrl = await slot.locator(".host-slot__invite").getAttribute("href");
+  const inviteUrl = await slot.locator(".host-slot__invite").getAttribute("data-url");
   if (!inviteUrl) throw new Error(`Client slot ${index + 1} did not produce an invite URL.`);
   await client.goto(inviteUrl);
   await client.waitForFunction(
     () => {
       const link = document.querySelector("#direct-action-link");
-      return link instanceof HTMLAnchorElement && link.href.includes("#response=");
+      return link instanceof HTMLOutputElement && link.value.includes("#response=");
     },
     undefined,
     { timeout: 20_000 },
@@ -146,7 +146,7 @@ async function joinClient(host, client, index) {
   if (await slot.locator("strong").textContent() !== `Friend ${index + 1}`) {
     throw new Error("Host-local invite name was not retained.");
   }
-  const responseUrl = await client.locator("#direct-action-link").getAttribute("href");
+  const responseUrl = await client.locator("#direct-action-link").textContent();
   if (!responseUrl) throw new Error(`Client ${index + 1} did not produce a response URL.`);
   const landing = await host.context().newPage();
   await landing.goto(responseUrl);

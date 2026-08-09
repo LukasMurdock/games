@@ -84,7 +84,7 @@ const inviteNameInput = element<HTMLInputElement>("#invite-name");
 const hostSlotsRoot = element<HTMLElement>("#host-slots");
 const directActionTitle = element<HTMLElement>("#direct-action-title");
 const directActionStatus = element<HTMLElement>("#direct-action-status");
-const directActionLink = element<HTMLAnchorElement>("#direct-action-link");
+const directActionLink = element<HTMLOutputElement>("#direct-action-link");
 const copyDirectActionButton = element<HTMLButtonElement>("#copy-direct-action");
 const eventLog = element<HTMLOListElement>("#event-log");
 const arena = element<HTMLCanvasElement>("#circle-arena");
@@ -104,7 +104,7 @@ type HostSlot = {
   inviteState: DirectInviteSlot;
   root: HTMLElement;
   status: HTMLElement;
-  inviteLink: HTMLAnchorElement;
+  inviteLink: HTMLElement;
   copyButton: HTMLButtonElement;
   closeButton: HTMLButtonElement;
 };
@@ -311,12 +311,10 @@ function createHostSlotElements(
   status.textContent = "waiting for response";
   heading.append(title, status);
 
-  const inviteLink = document.createElement("a");
+  const inviteLink = document.createElement("output");
   inviteLink.className = "host-slot__invite";
-  inviteLink.href = inviteUrl;
+  inviteLink.dataset.url = inviteUrl;
   inviteLink.textContent = inviteUrl;
-  inviteLink.target = "_blank";
-  inviteLink.rel = "noreferrer";
   const actions = document.createElement("div");
   actions.className = "host-slot__actions";
   const copyButton = document.createElement("button");
@@ -426,13 +424,18 @@ async function consumeResponseFragment(fragment: string) {
   if (!slot) return { accepted: false, message: "This host has no matching open slot." };
   const consumed = await slot.inviteState.consume(response);
   if (!consumed.ok) {
-    return { accepted: false, message: `Response was ${consumed.reason}.` };
+    const messages = {
+      consumed: "This response was already used. Return to the host game tab; create a new invite if the player is not connected.",
+      expired: "This invite expired. Return to the host game tab and create a new invite.",
+      "invalid-response": "This response does not match the invite slot.",
+    } as const;
+    return { accepted: false, message: messages[consumed.reason] };
   }
   try {
     await slot.connection.acceptAnswer({ type: "answer", sdp: consumed.answerSdp });
     slot.status.textContent = "connecting";
     slot.copyButton.disabled = true;
-    slot.inviteLink.removeAttribute("href");
+    delete slot.inviteLink.dataset.url;
     slot.inviteLink.textContent = "Response accepted";
     log(`${slotLabel(slot)} response accepted.`);
     return { accepted: true, message: `${slotLabel(slot)} response accepted.` };
@@ -531,25 +534,28 @@ async function handleDirectInvite(invite: DirectInvite) {
 }
 
 async function handleDirectResponse(response: DirectResponse, fragment: string) {
+  roleStatus.textContent = "response handoff";
+  setConnectionStatus("Delivering");
   directActionTitle.textContent = "Delivering response";
   directActionStatus.textContent = "Looking for the already-running host tab…";
   const result = await handoffDirectResponse(response.sessionId, fragment);
   if (result.accepted) {
+    setConnectionStatus("Delivered", "connected");
     directActionStatus.textContent = result.message ?? "Response delivered to the host tab.";
     directActionLink.hidden = true;
     copyDirectActionButton.hidden = true;
     setTimeout(() => window.close(), 250);
     return;
   }
+  setConnectionStatus("Not delivered", "failed");
   const responseUrl = createDirectUrl(baseGameUrl(), fragment);
   showDirectActionLink(responseUrl, "Copy response");
-  directActionStatus.textContent = result.message ?? "Host handoff failed. Copy this response manually.";
+  directActionStatus.textContent = result.message
+    ?? "Open the matching host game tab, then reopen this response link.";
 }
 
 function showDirectActionLink(url: string, buttonText: string) {
-  directActionLink.href = url;
-  directActionLink.target = "_blank";
-  directActionLink.rel = "noreferrer";
+  directActionLink.value = url;
   directActionLink.textContent = url;
   directActionLink.hidden = false;
   copyDirectActionButton.textContent = buttonText;

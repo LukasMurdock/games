@@ -41,14 +41,14 @@
         <ol class="instructions">
           <li>The host creates a named or unnamed invite and sends its link to one friend.</li>
           <li>The friend opens it, then sends the generated response link back to the host.</li>
-          <li>The host opens that response link; this running tab consumes it automatically.</li>
+          <li>Keep the host game tab open. Open the response in a new tab; it hands the response back here automatically.</li>
         </ol>
 
         <div class="setup-grid">
           <article>
             <p class="step">Host tab</p>
             <h2>Create private invites</h2>
-            <p class="slot-intro">Each invite owns one connection slot while the host simulation keeps running.</p>
+            <p class="slot-intro">Each invite owns one connection slot while this tab keeps the host simulation running. Do not navigate this tab to a response URL.</p>
             <label for="invite-name">Friend name <span class="optional">optional, local only</span></label>
             <input id="invite-name" maxlength="40" autocomplete="off" placeholder="Jamie" />
             <button id="create-offer" type="button">Create invite</button>
@@ -59,7 +59,7 @@
             <p class="step">Invite landing</p>
             <h2 id="direct-action-title">Open an invite link</h2>
             <p id="direct-action-status" class="direct-action-status">A Direct Invite or Response link will be handled automatically in this tab.</p>
-            <a id="direct-action-link" class="direct-action-link" hidden></a>
+            <output id="direct-action-link" class="direct-action-link" hidden></output>
             <button id="copy-direct-action" class="secondary" type="button" hidden>Copy link</button>
           </article>
         </div>
