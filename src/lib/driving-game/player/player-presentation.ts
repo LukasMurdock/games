@@ -2,8 +2,8 @@ import * as THREE from "three";
 import { createCarAudio, type CarAudio } from "../audio/car-audio";
 import type { DrivingProfile } from "../driving-profiles";
 import type { DrivingVehicleFrame } from "../simulation/types";
-import { createCar } from "../vehicle/create-car";
 import { createDriftSmoke, createSkidMarks } from "../vehicle/effects";
+import { createVehicleView } from "../vehicle/vehicle-view";
 
 export type PlayerPresentation = {
   start(): void;
@@ -36,10 +36,8 @@ export function createPlayerPresentation(
   let profile = initialProfile;
   let audio: CarAudio | null = null;
   let audioPaused = false;
-  let steeringVisual = 0;
-  const car = createCar();
+  const vehicleView = createVehicleView(scene);
   const framePosition = new THREE.Vector3();
-  scene.add(car.group);
   const driftSmoke = createDriftSmoke(scene);
   const skidMarks = createSkidMarks(scene);
 
@@ -48,42 +46,17 @@ export function createPlayerPresentation(
       audio ??= createCarAudio(profile);
     },
     reset(position: THREE.Vector3, heading: number) {
-      steeringVisual = 0;
       driftSmoke.reset();
       skidMarks.reset();
       audio?.reset();
-      car.group.position.copy(position);
-      car.group.rotation.set(0, heading, 0);
+      vehicleView.reset(position, heading);
     },
     syncPosition(position: THREE.Vector3) {
-      car.group.position.copy(position);
+      vehicleView.syncPosition(position);
     },
     update(frame: DrivingVehicleFrame) {
       framePosition.set(frame.position.x, 0.06, frame.position.z);
-      steeringVisual = THREE.MathUtils.lerp(
-        steeringVisual,
-        frame.steering * 0.48,
-        1 - Math.exp(-12 * frame.dt),
-      );
-      car.group.position.copy(framePosition);
-      car.group.rotation.y = frame.heading;
-      car.group.rotation.z = THREE.MathUtils.lerp(
-        car.group.rotation.z,
-        frame.targetRoll,
-        1 - Math.exp(-7 * frame.dt),
-      );
-      car.group.rotation.x = THREE.MathUtils.lerp(
-        car.group.rotation.x,
-        frame.targetPitch,
-        1 - Math.exp(-9 * frame.dt),
-      );
-      car.frontWheels.forEach((wheel) => (wheel.rotation.y = steeringVisual));
-      const wheelSpin = frame.forwardSpeed * frame.dt / 0.42;
-      car.wheels.forEach((wheel) => (wheel.rotation.x += wheelSpin));
-      car.brakeLights.forEach((light) => {
-        const material = light.material as THREE.MeshStandardMaterial;
-        material.emissiveIntensity = frame.braking || frame.handbrake || frame.hardDriftKick > 0.05 ? 5 : 1.2;
-      });
+      vehicleView.update(frame);
       driftSmoke.update(
         frame.dt,
         framePosition,
@@ -127,6 +100,7 @@ export function createPlayerPresentation(
     },
     destroy() {
       audio?.destroy();
+      vehicleView.destroy();
     },
   };
 }

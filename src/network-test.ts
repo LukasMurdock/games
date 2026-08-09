@@ -1,17 +1,27 @@
 import "./styles/network-test.css";
+import * as THREE from "three";
+import { DrivingSnapshotBuffer } from "./lib/driving-game/multiplayer/interpolation";
 import {
-  DRIVING_GAME_ID,
-  DRIVING_RULESET_ID,
-  drivingPayloadCodec,
-} from "./conformance/driving/protocol";
+  PRODUCTION_DRIVING_GAME_ID,
+  PRODUCTION_DRIVING_RULESET_ID,
+  productionDrivingPayloadCodec,
+} from "./lib/driving-game/multiplayer/protocol";
 import {
-  drivingSimulation,
-  type DrivingConfig,
-  type DrivingEvent,
-  type DrivingInput,
-  type DrivingSnapshot,
-  type DrivingState,
-} from "./conformance/driving/simulation";
+  PRODUCTION_DRIVING_COMPOSITION,
+  createProductionDrivingConfig,
+} from "./lib/driving-game/multiplayer/ruleset";
+import {
+  authoritativeDrivingSimulation,
+  type AuthoritativeDrivingConfig,
+  type AuthoritativeDrivingEvent,
+  type AuthoritativeDrivingInput,
+  type AuthoritativeDrivingSnapshot,
+  type AuthoritativeDrivingState,
+} from "./lib/driving-game/multiplayer/simulation";
+import { GAME_MAPS } from "./lib/driving-game/maps";
+import { createDrivingWorldQuery } from "./lib/driving-game/world/driving-world-query";
+import { buildWorld } from "./lib/driving-game/world/build-world";
+import type { WorldRuntime } from "./lib/driving-game/world/types";
 import { movingCirclesPayloadCodec } from "./conformance/moving-circles/protocol";
 import {
   movingCirclesSimulation,
@@ -60,20 +70,22 @@ const CIRCLES_RULESET_ID = Uint8Array.from([
   0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
   0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
 ]);
-const GAME_ID = IS_DRIVING ? DRIVING_GAME_ID : "moving-circles";
-const RULESET_ID = IS_DRIVING ? DRIVING_RULESET_ID : CIRCLES_RULESET_ID;
-const WORLD_RADIUS = 100;
+const GAME_ID = IS_DRIVING ? PRODUCTION_DRIVING_GAME_ID : "moving-circles";
+const RULESET_ID = IS_DRIVING ? PRODUCTION_DRIVING_RULESET_ID : CIRCLES_RULESET_ID;
+const WORLD_RADIUS = IS_DRIVING
+  ? GAME_MAPS[PRODUCTION_DRIVING_COMPOSITION.mapId].worldLimit
+  : 100;
 const INPUT_INTERVAL_MS = 1000 / 30;
 
-type AppConfig = MovingCirclesConfig | DrivingConfig;
-type AppInput = MovingCirclesInput | DrivingInput;
-type AppState = MovingCirclesState | DrivingState;
-type AppSnapshot = MovingCirclesSnapshot | DrivingSnapshot;
-type AppEvent = MovingCirclesEvent | DrivingEvent;
+type AppConfig = MovingCirclesConfig | AuthoritativeDrivingConfig;
+type AppInput = MovingCirclesInput | AuthoritativeDrivingInput;
+type AppState = MovingCirclesState | AuthoritativeDrivingState;
+type AppSnapshot = MovingCirclesSnapshot | AuthoritativeDrivingSnapshot;
+type AppEvent = MovingCirclesEvent | AuthoritativeDrivingEvent;
 
-const selectedPayloadCodec = (IS_DRIVING ? drivingPayloadCodec : movingCirclesPayloadCodec) as unknown as
+const selectedPayloadCodec = (IS_DRIVING ? productionDrivingPayloadCodec : movingCirclesPayloadCodec) as unknown as
   GamePayloadCodec<AppInput, AppSnapshot, AppEvent>;
-const selectedSimulation = (IS_DRIVING ? drivingSimulation : movingCirclesSimulation) as unknown as
+const selectedSimulation = (IS_DRIVING ? authoritativeDrivingSimulation : movingCirclesSimulation) as unknown as
   GameSimulation<AppConfig, AppInput, AppState, AppSnapshot, AppEvent>;
 const gameCodec = new GameNetCodec(selectedPayloadCodec);
 const directCodec = new DirectInviteCodec();
@@ -114,7 +126,7 @@ if (IS_DRIVING) {
   const gameTitle = element<HTMLElement>("#game-title");
   gameTitle.textContent = "Authoritative driving";
   element<HTMLElement>("#game-description").textContent =
-    "Clients send steering, throttle, brake, and handbrake intent. Only the host advances vehicles and resolves collisions.";
+    "Production Cruise uses automatic throttle. Clients send steering and handbrake intent; only the host advances vehicles and resolves collisions.";
   element<HTMLElement>("#game-control-summary").innerHTML =
     "<kbd>WASD</kbd> or <kbd>Arrow keys</kbd> · <kbd>Space</kbd> Drift";
   element<HTMLButtonElement>("#handbrake-control").hidden = false;
@@ -147,6 +159,8 @@ let hostRuntime: GameHostRuntime | null = null;
 let localClient: GameClientRuntime | null = null;
 let hostSessionId: Uint8Array | null = null;
 let responseReceiver: DirectResponseReceiver | null = null;
+let productionWorld: WorldRuntime | null = null;
+const drivingSnapshotBuffer = IS_DRIVING ? new DrivingSnapshotBuffer() : null;
 let latestSnapshot: AppSnapshot = { players: [] };
 let latestTick = 0;
 let startedAt = performance.now();
@@ -201,9 +215,12 @@ function closeCurrent(reason: string, writeLog = true, immediate = false) {
   const closingHostPeers = [...hostSlots.values()].map((slot) => slot.connection);
   const closingHost = hostRuntime;
   const closingClient = localClient;
+  const closingWorld = productionWorld;
   clientPeer = null;
   hostRuntime = null;
   localClient = null;
+  productionWorld = null;
+  drivingSnapshotBuffer?.clear();
   hostSessionId = null;
   responseReceiver?.close();
   responseReceiver = null;
@@ -212,6 +229,7 @@ function closeCurrent(reason: string, writeLog = true, immediate = false) {
   hostSlotsRoot.replaceChildren();
   if (closingHost) closingHost.close();
   else closingClient?.close();
+  closingWorld?.destroy();
   const closingPeers = [closingClientPeer, ...closingHostPeers].filter(
     (connection): connection is WebRTCPeerConnection => connection !== null,
   );
@@ -298,14 +316,21 @@ function startHostSession() {
   }
   if (hostRuntime) return hostRuntime;
   let nextGuest = 1;
+  let simulationConfig: AppConfig;
+  if (IS_DRIVING) {
+    productionWorld = buildWorld(new THREE.Scene(), GAME_MAPS[PRODUCTION_DRIVING_COMPOSITION.mapId]);
+    simulationConfig = createProductionDrivingConfig(createDrivingWorldQuery(productionWorld));
+  } else {
+    simulationConfig = { speed: 24, worldRadius: WORLD_RADIUS };
+  }
   const runtime = new HostRuntime({
     simulation: selectedSimulation,
-    simulationConfig: IS_DRIVING
-      ? { worldRadius: WORLD_RADIUS }
-      : { speed: 24, worldRadius: WORLD_RADIUS },
+    simulationConfig,
     codec: gameCodec,
     gameId: GAME_ID,
     rulesetId: RULESET_ID,
+    tickRate: IS_DRIVING ? PRODUCTION_DRIVING_COMPOSITION.tickRate : undefined,
+    snapshotRate: IS_DRIVING ? PRODUCTION_DRIVING_COMPOSITION.snapshotRate : undefined,
     createPlayerId: (peerId) => peerId === "local-player" ? "host" : `guest-${nextGuest++}`,
   });
   hostRuntime = runtime;
@@ -531,9 +556,16 @@ function bindGameClient(client: GameClientRuntime) {
   });
   client.onSnapshot((message) => {
     if (localClient !== client) return;
-    latestSnapshot = message.snapshot;
     latestTick = message.tick;
-    arenaEmpty.hidden = latestSnapshot.players.length > 0;
+    if (IS_DRIVING) {
+      drivingSnapshotBuffer?.push(
+        message.tick,
+        message.snapshot as AuthoritativeDrivingSnapshot,
+      );
+    } else {
+      latestSnapshot = message.snapshot;
+    }
+    arenaEmpty.hidden = message.snapshot.players.length > 0;
   });
   client.onEvent((message) => {
     if (localClient !== client) return;
@@ -634,7 +666,7 @@ function sendCurrentInput(now: number) {
   const direction = currentDirection();
   const input: AppInput = IS_DRIVING
     ? {
-        steering: direction[0],
+        steering: direction[0] < 0 ? -1 : direction[0] > 0 ? 1 : 0,
         throttle: Number(pressedDirections.has("up")),
         brake: pressedDirections.has("down"),
         handbrake: pressedDirections.has("handbrake"),
@@ -747,6 +779,10 @@ function pumpHostClock(now: number) {
 function frame(now: number) {
   pumpHostClock(now);
   sendCurrentInput(now);
+  if (IS_DRIVING) {
+    const interpolated = drivingSnapshotBuffer?.sample(now);
+    if (interpolated) latestSnapshot = interpolated;
+  }
   tickStatus.textContent = String(latestTick);
   playerCountStatus.textContent = String(
     hostRuntime?.playerCount ?? latestSnapshot.players.length,

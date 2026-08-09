@@ -1,6 +1,6 @@
 # Production Driving v1 GameNet registry
 
-Status: implementation draft; headless runtime integration complete.
+Status: implementation draft; headless runtime and interpolated browser conformance integration complete.
 
 - Game ID: `driving`
 - Ruleset ID: `422c7a11965d4e38b1d073f529a46c02`
@@ -13,8 +13,8 @@ This ruleset uses the extracted production vehicle mechanics. It is distinct fro
 | ID | Name | Meaning |
 | ---: | --- | --- |
 | 0 | `steering` | Discrete intent: -1 left, 0 neutral, 1 right |
-| 1 | `throttle` | Finite intent from 0 through 1 |
-| 2 | `brake` | Brake/reverse intent |
+| 1 | `throttle` | Finite intent from 0 through 1; reserved by the initial automatic-control composition |
+| 2 | `brake` | Brake/reverse intent; reserved by the initial automatic-control composition |
 | 3 | `handbrake` | Handbrake/drift intent |
 
 Clients never send trusted position, velocity, heading, drift phase, boost, collision, or score.
@@ -47,4 +47,4 @@ Clients never send trusted position, velocity, heading, drift phase, boost, coll
 | 1 | `LEFT` | Player ID |
 | 2 | `COLLISION` | Player ID, optional other player ID, terminal flag |
 
-The ruleset allocates no game-specific GameNet message types or feature IDs. Its initial release composition will bind a fixed map, profile, control mode, and deterministic spawn list before public UI integration.
+The ruleset allocates no game-specific GameNet message types or feature IDs. The initial composition is bound to Cruise, City Circuit, the `loose` profile, automatic controls, 60 Hz host ticks, 20 Hz snapshots, and an eight-position deterministic starting grid. Public driving-page UI integration remains deferred.

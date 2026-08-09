@@ -146,14 +146,19 @@ async function testDrivingPilot(browserInstance) {
     throw new Error("Driving multiplayer mode did not select its protocol adapter.");
   }
   await joinClient(host, client, 0);
+  await Promise.all([host, client].map((page) => page.waitForFunction(
+    () => document.querySelector("#player-count-status")?.textContent === "2",
+    undefined,
+    { timeout: 15_000 },
+  )));
   const beforeMove = await host.locator("#circle-arena").screenshot();
-  await client.keyboard.down("ArrowUp");
+  await client.keyboard.down("ArrowRight");
   await new Promise((resolve) => setTimeout(resolve, 800));
-  await client.keyboard.up("ArrowUp");
+  await client.keyboard.up("ArrowRight");
   await new Promise((resolve) => setTimeout(resolve, 150));
   const afterMove = await host.locator("#circle-arena").screenshot();
   if (beforeMove.equals(afterMove)) {
-    throw new Error("Driving throttle intent did not change authoritative vehicle state.");
+    throw new Error("Production driving intent did not change interpolated authoritative vehicle state.");
   }
   await host.click("#close-connection");
   await client.waitForFunction(
@@ -162,7 +167,7 @@ async function testDrivingPilot(browserInstance) {
     { timeout: 10_000 },
   );
   await Promise.all([hostContext.close(), clientContext.close()]);
-  console.log("Driving browser pilot passed: host + client over Direct Invite links.");
+  console.log("Production driving browser path passed: two interpolated cars over Direct Invite links.");
 }
 
 async function joinClient(host, client, index) {
