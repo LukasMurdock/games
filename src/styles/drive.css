@@ -1,0 +1,796 @@
+:root {
+    color-scheme: dark;
+    font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  html,
+  body {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+    overscroll-behavior: none;
+    background: #182119;
+  }
+
+  button,
+  a { font: inherit; }
+
+  button { -webkit-tap-highlight-color: transparent; }
+
+  #driving-game {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    height: 100dvh;
+    overflow: hidden;
+  }
+
+  #driving-game,
+  #driving-game *,
+  #driving-game *::before,
+  #driving-game *::after {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-user-drag: none;
+  }
+
+  #game-canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    outline: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-user-drag: none;
+    touch-action: none;
+  }
+
+  #speed-lines-canvas {
+    position: absolute;
+    z-index: 2;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    #speed-lines-canvas { display: none; }
+    .drive-leaderboard { transition: none !important; }
+  }
+
+  .topbar {
+    position: absolute;
+    z-index: 5;
+    top: 0;
+    left: 0;
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    padding: 18px 22px;
+    color: #fff;
+    pointer-events: none;
+  }
+
+  .wordmark,
+  .actions button {
+    background: rgba(18, 25, 27, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+    backdrop-filter: blur(12px);
+  }
+
+  .wordmark {
+    justify-self: start;
+    display: grid;
+    width: 42px;
+    height: 42px;
+    place-items: center;
+    border-radius: 50%;
+    color: #fff;
+    text-decoration: none;
+    font-weight: 850;
+    letter-spacing: -0.06em;
+    pointer-events: auto;
+  }
+
+  .mode-hud {
+    position: absolute;
+    z-index: 5;
+    top: 74px;
+    right: 22px;
+    pointer-events: none;
+  }
+
+  .mode-hud:empty { display: none; }
+
+  .map-diagnostics {
+    position: absolute;
+    z-index: 8;
+    top: 74px;
+    left: 22px;
+    min-width: 190px;
+    padding: 11px 13px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 10px;
+    background: rgba(13, 20, 18, 0.82);
+    color: rgba(255, 255, 255, 0.78);
+    font: 600 10px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+    white-space: pre;
+    pointer-events: none;
+  }
+
+  .map-diagnostics[hidden] { display: none; }
+
+  .drive-leaderboard {
+    position: absolute;
+    z-index: 8;
+    top: 74px;
+    right: 22px;
+    width: 176px;
+    padding: 16px 18px 17px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 18px;
+    opacity: 0;
+    background: rgba(18, 25, 27, 0.86);
+    box-shadow: 0 18px 46px rgba(0, 0, 0, 0.24);
+    backdrop-filter: blur(12px);
+    color: #fff;
+    transform: translateY(-8px) scale(0.98);
+    transition: opacity 180ms ease, transform 180ms ease;
+    pointer-events: none;
+  }
+
+  #driving-game[data-game-mode="chase"] .drive-leaderboard { top: 186px; }
+
+  .drive-leaderboard.is-visible {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  .drive-leaderboard.is-leaving {
+    opacity: 0;
+    transform: translateY(-5px) scale(0.99);
+    transition-duration: 420ms;
+  }
+
+  .drive-leaderboard__title {
+    display: block;
+    margin-bottom: 9px;
+    color: rgba(255, 255, 255, 0.62);
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .drive-leaderboard__empty {
+    margin: 0;
+    color: rgba(255, 255, 255, 0.58);
+    font-size: 11px;
+  }
+
+  .drive-leaderboard__list {
+    display: grid;
+    gap: 3px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .drive-leaderboard__list li {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: baseline;
+    padding: 4px 7px;
+    border-radius: 7px;
+    color: rgba(255, 255, 255, 0.62);
+    font-size: 10px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .drive-leaderboard__list li > strong {
+    color: #fff;
+    font-size: 13px;
+    letter-spacing: -0.02em;
+  }
+
+  .drive-leaderboard__list li.is-current {
+    background: rgba(185, 217, 157, 0.13);
+    color: #b9d99d;
+  }
+
+  .chase-status[hidden] { display: none; }
+
+  .chase-status {
+    display: grid;
+    width: 176px;
+    gap: 4px;
+    padding: 13px 15px 14px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 17px;
+    background: rgba(18, 25, 27, 0.72);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.14);
+    backdrop-filter: blur(12px);
+    color: #fff;
+  }
+
+  .chase-status__label {
+    color: rgba(255, 255, 255, 0.62);
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .chase-status__timer {
+    font-size: 25px;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.05em;
+    line-height: 1;
+  }
+
+  .chase-status__message {
+    overflow: hidden;
+    color: rgba(255, 255, 255, 0.82);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .chase-status__meter {
+    height: 3px;
+    margin-top: 5px;
+    overflow: hidden;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.14);
+  }
+
+  .chase-status__meter > span {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border-radius: inherit;
+    background: #e2c148;
+    transform: scaleX(0);
+    transform-origin: left;
+  }
+
+  .chase-status[data-pressure="danger"] .chase-status__meter > span { background: #e9553f; }
+
+  .chase-status[data-state="captured"] {
+    border-color: rgba(233, 85, 63, 0.5);
+    background: rgba(47, 24, 22, 0.82);
+  }
+
+  .actions {
+    justify-self: end;
+    display: flex;
+    gap: 8px;
+    pointer-events: auto;
+  }
+
+  .actions button {
+    min-height: 42px;
+    padding: 0 14px;
+    border-radius: 22px;
+    color: #fff;
+    cursor: pointer;
+  }
+
+  .actions button:hover { background: rgba(18, 25, 27, 0.9); }
+
+  .action-mobile { display: none; }
+
+  button:focus-visible,
+  a:focus-visible {
+    outline: 2px solid #e7f5d9;
+    outline-offset: 3px;
+  }
+
+  kbd {
+    display: inline-flex;
+    min-width: 20px;
+    min-height: 20px;
+    align-items: center;
+    justify-content: center;
+    padding: 2px 5px;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 5px;
+    background: rgba(255, 255, 255, 0.09);
+    color: inherit;
+    font: 700 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+
+  .intro {
+    position: absolute;
+    z-index: 10;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding:
+      max(24px, env(safe-area-inset-top))
+      max(24px, env(safe-area-inset-right))
+      max(24px, env(safe-area-inset-bottom))
+      max(24px, env(safe-area-inset-left));
+    overflow-y: auto;
+    background: rgba(13, 22, 17, 0.32);
+    backdrop-filter: blur(7px);
+    transition: opacity 300ms ease, visibility 300ms ease;
+    touch-action: pan-y pinch-zoom;
+  }
+
+  .intro.is-hidden {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  .intro-card {
+    width: min(520px, 100%);
+    padding: clamp(28px, 6vw, 54px);
+    border: 1px solid rgba(255, 255, 255, 0.19);
+    border-radius: 28px;
+    background: rgba(20, 29, 29, 0.88);
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.3);
+    color: #fff;
+    text-align: center;
+  }
+
+  .eyebrow {
+    margin: 0 0 14px;
+    color: #b9d99d;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  .intro h1 {
+    margin: 0;
+    font-size: clamp(42px, 8vw, 72px);
+    line-height: 0.98;
+    letter-spacing: -0.065em;
+  }
+
+  .intro-card > p:not(.eyebrow) {
+    max-width: 390px;
+    margin: 22px auto 18px;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 15px;
+    line-height: 1.55;
+  }
+
+  .selector-label {
+    display: block;
+    margin-bottom: 8px;
+    color: rgba(255, 255, 255, 0.58);
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-align: left;
+    text-transform: uppercase;
+  }
+
+  .mode-select {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin: 0 auto 22px;
+  }
+
+  .map-select {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  }
+
+  .mode-select button {
+    display: grid;
+    gap: 3px;
+    padding: 12px 14px;
+    border: 1px solid rgba(255, 255, 255, 0.13);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.045);
+    color: rgba(255, 255, 255, 0.66);
+    font: inherit;
+    text-align: left;
+    transition: border-color 140ms ease, background 140ms ease, color 140ms ease;
+    cursor: pointer;
+  }
+
+  .mode-select button:hover {
+    border-color: rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+  }
+
+  .mode-select button[aria-pressed="true"] {
+    border-color: rgba(185, 217, 157, 0.72);
+    background: rgba(185, 217, 157, 0.13);
+    color: #fff;
+  }
+
+  .mode-select strong { font-size: 13px; }
+
+  .mode-select span {
+    color: rgba(255, 255, 255, 0.52);
+    font-size: 10px;
+  }
+
+  #start-driving {
+    display: inline-flex;
+    min-height: 52px;
+    align-items: center;
+    gap: 32px;
+    padding: 0 20px 0 23px;
+    border: 0;
+    border-radius: 27px;
+    background: #e7f5d9;
+    color: #172117;
+    font-weight: 800;
+    cursor: pointer;
+    transition: transform 160ms ease, background 160ms ease;
+  }
+
+  #start-driving:hover {
+    transform: translateY(-2px);
+    background: #fff;
+  }
+
+  .key-guide {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 13px;
+    margin-top: 30px;
+    color: rgba(255, 255, 255, 0.58);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .key-guide span {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .pause-overlay {
+    position: absolute;
+    z-index: 9;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding:
+      max(24px, env(safe-area-inset-top))
+      max(24px, env(safe-area-inset-right))
+      max(24px, env(safe-area-inset-bottom))
+      max(24px, env(safe-area-inset-left));
+    overflow-y: auto;
+    visibility: hidden;
+    opacity: 0;
+    background: rgba(13, 22, 17, 0.32);
+    backdrop-filter: blur(7px);
+    transition: opacity 180ms ease, visibility 180ms ease;
+    pointer-events: none;
+    touch-action: pan-y pinch-zoom;
+  }
+
+  .pause-overlay.is-visible {
+    visibility: visible;
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .pause-card {
+    width: min(390px, 100%);
+    padding: 38px;
+    border: 1px solid rgba(255, 255, 255, 0.19);
+    border-radius: 26px;
+    background: rgba(20, 29, 29, 0.9);
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.3);
+    color: #fff;
+    text-align: center;
+  }
+
+  .pause-card h2 {
+    margin: 0 0 26px;
+    font-size: clamp(30px, 7vw, 46px);
+    line-height: 1;
+    letter-spacing: -0.05em;
+  }
+
+  .pause-drive-time {
+    display: grid;
+    gap: 3px;
+    margin: -8px 0 22px;
+  }
+
+  .pause-drive-time span {
+    color: rgba(255, 255, 255, 0.58);
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .pause-drive-time strong {
+    font-size: 27px;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.05em;
+  }
+
+  .pause-mode-select > span,
+  .pause-mode-select > .control-mode-setting > span {
+    display: block;
+    margin-bottom: 8px;
+    color: rgba(255, 255, 255, 0.58);
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-align: left;
+    text-transform: uppercase;
+  }
+
+  .mode-select--pause { margin-bottom: 22px; }
+  .mode-select--between { margin-bottom: 14px; }
+  .control-mode-setting[hidden],
+  #driving-game[data-desktop-controls="false"] .control-mode-setting { display: none; }
+
+  .pause-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 9px;
+  }
+
+  #resume-driving,
+  #fullscreen-button {
+    min-height: 48px;
+    padding: 0 20px;
+    border: 0;
+    border-radius: 24px;
+    background: #e7f5d9;
+    color: #172117;
+    font-weight: 800;
+    cursor: pointer;
+  }
+
+  .touch-controls {
+    display: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-user-drag: none;
+    touch-action: none;
+  }
+
+  .touch-controls button {
+    -webkit-appearance: none;
+    appearance: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-user-drag: none;
+    touch-action: none;
+  }
+
+  .steering-icon {
+    display: block;
+    width: 24px;
+    height: 24px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.7;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    pointer-events: none;
+  }
+
+  #driving-game[data-touch-capable="true"] .touch-controls { display: flex; }
+
+  @media (max-width: 720px), (any-pointer: coarse) {
+    .topbar {
+      grid-template-columns: 1fr auto;
+      padding:
+        max(12px, env(safe-area-inset-top))
+        max(12px, env(safe-area-inset-right))
+        12px
+        max(12px, env(safe-area-inset-left));
+    }
+
+    .actions button {
+      position: relative;
+      display: grid;
+      width: 42px;
+      padding: 0;
+      place-items: center;
+      overflow: hidden;
+    }
+
+    .actions .action-label,
+    .actions button kbd { display: none; }
+
+    .actions .action-mobile {
+      display: inline;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    #reset-button .action-mobile,
+    #pause-button .action-mobile { font-size: 18px; }
+
+    .key-guide { display: none; }
+
+    .mode-hud {
+      top: calc(max(12px, env(safe-area-inset-top)) + 56px);
+      right: max(12px, env(safe-area-inset-right));
+    }
+
+    .drive-leaderboard {
+      top: calc(max(12px, env(safe-area-inset-top)) + 56px);
+      right: max(12px, env(safe-area-inset-right));
+      width: 156px;
+    }
+
+    #driving-game[data-game-mode="chase"] .drive-leaderboard {
+      top: calc(max(12px, env(safe-area-inset-top)) + 166px);
+    }
+
+    .chase-status { width: 156px; }
+
+    .touch-controls {
+      position: absolute;
+      z-index: 6;
+      right: 0;
+      bottom: 0;
+      left: 0;
+      align-items: end;
+      justify-content: space-between;
+      padding:
+        18px
+        max(18px, env(safe-area-inset-right))
+        max(20px, env(safe-area-inset-bottom))
+        max(18px, env(safe-area-inset-left));
+      pointer-events: none;
+    }
+
+    .steering-controls {
+      display: grid;
+      grid-template-columns: repeat(2, 58px);
+      gap: 9px;
+      pointer-events: auto;
+    }
+
+    .touch-controls button {
+      display: grid;
+      width: 58px;
+      height: 58px;
+      padding: 0;
+      place-items: center;
+      border: 1px solid rgba(255, 255, 255, 0.24);
+      border-radius: 50%;
+      background: rgba(18, 25, 27, 0.68);
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.18);
+      backdrop-filter: blur(10px);
+      color: #fff;
+      font-size: 22px;
+      font-weight: 750;
+      pointer-events: auto;
+    }
+
+    .touch-controls button.is-active {
+      transform: scale(0.94);
+      background: rgba(231, 245, 217, 0.92);
+      color: #172117;
+    }
+
+    .touch-controls .drift {
+      width: 52px;
+      height: 52px;
+      margin-bottom: 3px;
+      font-size: 9px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .touch-controls .drift::before {
+      content: "Drift";
+      pointer-events: none;
+    }
+  }
+
+  @media (orientation: landscape) and (max-height: 520px) {
+    .intro,
+    .pause-overlay {
+      place-items: start center;
+      padding:
+        max(10px, env(safe-area-inset-top))
+        max(14px, env(safe-area-inset-right))
+        max(10px, env(safe-area-inset-bottom))
+        max(14px, env(safe-area-inset-left));
+    }
+
+    .intro-card {
+      width: min(680px, 100%);
+      padding: 16px 22px;
+      border-radius: 18px;
+    }
+
+    .eyebrow { margin-bottom: 6px; }
+
+    .intro h1 { font-size: 34px; }
+
+    .intro-card > p:not(.eyebrow) {
+      margin: 8px auto 10px;
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .selector-label,
+    .pause-mode-select > span,
+    .pause-mode-select > .control-mode-setting > span { margin-bottom: 4px; }
+
+    .mode-select,
+    .mode-select--pause,
+    .mode-select--between {
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+
+    .mode-select button { padding: 7px 10px; }
+
+    #start-driving,
+    #resume-driving,
+    #fullscreen-button { min-height: 42px; }
+
+    .key-guide { margin-top: 10px; }
+
+    .pause-card {
+      width: min(560px, 100%);
+      padding: 15px 22px;
+      border-radius: 18px;
+    }
+
+    .pause-card .eyebrow { display: none; }
+
+    .pause-card h2 {
+      margin-bottom: 8px;
+      font-size: 28px;
+    }
+
+    .pause-drive-time {
+      margin: 0 0 8px;
+      grid-template-columns: auto auto;
+      justify-content: center;
+      align-items: baseline;
+      gap: 8px;
+    }
+
+    .pause-drive-time strong { font-size: 20px; }
+
+    .touch-controls {
+      padding-top: 8px;
+      padding-bottom: max(10px, env(safe-area-inset-bottom));
+    }
+  }
+
+  @media (orientation: landscape) and (max-height: 400px) {
+    .intro-card > p:not(.eyebrow),
+    .intro-card > .eyebrow { display: none; }
+  }
+
+  @media (max-width: 440px) {
+    .intro-card { border-radius: 22px; }
+    .map-select > button:last-child:nth-child(odd) { grid-column: 1 / -1; }
+    .steering-controls { grid-template-columns: repeat(2, 52px); }
+    .touch-controls button { width: 52px; height: 52px; }
+  }
