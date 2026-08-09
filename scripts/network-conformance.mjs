@@ -109,12 +109,31 @@ try {
   await Promise.all(clients.map(({ context }) => context.close()));
   await hostContext.close();
   await testDrivingPilot(browser);
+  await testSinglePlayerDriving(browser);
 } catch (error) {
   if (serverOutput) console.error(serverOutput);
   throw error;
 } finally {
   await browser?.close();
   server.kill("SIGTERM");
+}
+
+async function testSinglePlayerDriving(browserInstance) {
+  const context = await browserInstance.newContext();
+  const page = await context.newPage();
+  const pageErrors = [];
+  page.on("pageerror", (error) => pageErrors.push(error));
+  await page.goto(`http://127.0.0.1:${port}/`);
+  await page.click("#start-driving");
+  const before = await page.locator("#game-canvas").screenshot();
+  await page.keyboard.down("ArrowLeft");
+  await new Promise((resolve) => setTimeout(resolve, 700));
+  await page.keyboard.up("ArrowLeft");
+  const after = await page.locator("#game-canvas").screenshot();
+  if (before.equals(after)) throw new Error("Extracted local driving simulation did not advance presentation.");
+  if (pageErrors.length > 0) throw pageErrors[0];
+  await context.close();
+  console.log("Single-player driving smoke test passed after simulation extraction.");
 }
 
 async function testDrivingPilot(browserInstance) {

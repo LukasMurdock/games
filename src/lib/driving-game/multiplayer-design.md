@@ -83,7 +83,7 @@ interface GameSimulation<Input, State> {
 
 `HostRuntime` owns player admission, the fixed simulation clock, input application, and authoritative snapshot publication. Browser and future dedicated hosts reuse the same runtime and simulation.
 
-The original single-player controller mixed mechanics, Three.js, audio, effects, browser input timing, and render timing. Its first extraction is complete: deterministic control timing lives in `core/`, map access crosses a numeric `DrivingWorldQuery`, visual/audio/effect mutation lives in `PlayerPresentation`, the browser composes an explicit `LocalDrivingSession`, and `createDrivingVehicleSimulation()` runs the production mechanics headlessly with detached snapshots. Existing local cameras, modes, and presentation remain unchanged.
+The original single-player controller mixed mechanics, Three.js, audio, effects, browser input timing, and render timing. The ownership inversion is complete: deterministic control timing lives in `core/`; map access crosses a numeric `DrivingWorldQuery`; `DrivingVehicleSimulation` exclusively owns plain numeric handling state, collision response, and deterministic time-step updates; visual/audio/effect mutation lives in `PlayerPresentation`; and the browser composes an explicit `LocalDrivingSession`. `PlayerController` is now only a compatibility adapter between detached simulation state and the existing local presentation API. Existing local cameras, modes, and presentation remain unchanged.
 
 The multiplayer pilot still uses its intentionally small conformance simulation. Production multiplayer must replace that pilot with per-player instances of the extracted production mechanics rather than growing a second vehicle model.
 

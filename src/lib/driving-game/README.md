@@ -6,9 +6,9 @@ The driving game is split along the things that can vary independently:
 - `driving-profiles.ts` — internal handling presets used while tuning.
 - `audio/` — car-audio orchestration plus procedural engine and tire AudioWorklet sources.
 - `core/` — deterministic control timing and the numeric world-query contract used by vehicle mechanics.
-- `simulation/` — presentation-free production vehicle entry point and detached authoritative snapshots.
+- `simulation/` — all production handling state and deterministic time-step mechanics, with detached authoritative snapshots and presentation-frame output.
 - `session/` — offline session composition; the browser runtime depends on this boundary rather than constructing a player controller directly.
-- `player/` — vehicle-mechanics coordinator, stable player API, and a separate presentation observer.
+- `player/` — thin compatibility adapter exposing the stable player API plus the separate Three.js/audio/effects presentation observer.
 - `vehicle/` — player-car construction, drift smoke, and skid marks.
 - `feedback/` — inexpensive screen-space gameplay feedback such as redline speed lines.
 - `world/` — map construction, circuit geometry, buildings, props, visible perimeter fencing, and collision bounds.
@@ -18,7 +18,7 @@ The driving game is split along the things that can vary independently:
 - `types.ts` — launch options and shared runtime state names.
 - `design.md` — experiential north star.
 
-The local frame path is now `runtime → LocalDrivingSession → vehicle mechanics → PlayerPresentation`. Control double taps use simulation time rather than `performance.now()`, world access crosses a numeric `DrivingWorldQuery`, and the same mechanics can run headlessly through `createDrivingVehicleSimulation()` with no scene, audio, effects, DOM, or browser clock. This is the boundary an authoritative multiplayer simulation can consume; single-player still owns its existing cameras, modes, HUD, audio, and effects.
+The local frame path is now `runtime → LocalDrivingSession → DrivingVehicleSimulation → PlayerPresentation`. The simulation exclusively owns position, velocity, heading, controls, drift phases, boost, collision response, and time-step updates as plain numeric state. Control double taps use simulation time rather than `performance.now()`, and world access crosses a numeric `DrivingWorldQuery`. `PlayerController` only adapts detached simulation snapshots to the legacy Three.js-facing API and forwards presentation frames. The mechanics therefore run headlessly with no Three.js state, scene, audio, effects, DOM, or browser clock. This is the boundary an authoritative multiplayer simulation can consume; single-player still owns its existing cameras, modes, HUD, audio, and effects.
 
 `../driving-game.ts` is the stable public entry point used by the Astro page. `/drive/dyno/` is a hidden, `noindex` tuning surface that runs the same procedural car-audio and transmission code against synthetic speed, throttle, drift, braking, reverse, and boost inputs. It exposes live transmission parameters, per-transition full-shift toggles, telemetry, a logarithmic spectrogram, persistent tuning JSON, and a copyable event log without shipping any reference recordings.
 

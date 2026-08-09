@@ -1,37 +1,15 @@
 import * as THREE from "three";
 import { createCarAudio, type CarAudio } from "../audio/car-audio";
 import type { DrivingProfile } from "../driving-profiles";
-import type { DriftPhase } from "../types";
+import type { DrivingVehicleFrame } from "../simulation/types";
 import { createCar } from "../vehicle/create-car";
 import { createDriftSmoke, createSkidMarks } from "../vehicle/effects";
-
-export type PlayerPresentationFrame = {
-  dt: number;
-  position: THREE.Vector3;
-  heading: number;
-  steering: number;
-  forwardSpeed: number;
-  braking: boolean;
-  handbrake: boolean;
-  hardDriftKick: number;
-  visualSlip: number;
-  slipIntensity: number;
-  speed: number;
-  distance: number;
-  targetRoll: number;
-  targetPitch: number;
-  phase: DriftPhase;
-  onPavement: boolean;
-  boosting: boolean;
-  throttle: number;
-  reversing: boolean;
-};
 
 export type PlayerPresentation = {
   start(): void;
   reset(position: THREE.Vector3, heading: number): void;
   syncPosition(position: THREE.Vector3): void;
-  update(frame: PlayerPresentationFrame): void;
+  update(frame: DrivingVehicleFrame): void;
   impact(strength: number): void;
   setProfile(profile: DrivingProfile): void;
   setPaused(paused: boolean): void;
@@ -60,6 +38,7 @@ export function createPlayerPresentation(
   let audioPaused = false;
   let steeringVisual = 0;
   const car = createCar();
+  const framePosition = new THREE.Vector3();
   scene.add(car.group);
   const driftSmoke = createDriftSmoke(scene);
   const skidMarks = createSkidMarks(scene);
@@ -79,13 +58,14 @@ export function createPlayerPresentation(
     syncPosition(position: THREE.Vector3) {
       car.group.position.copy(position);
     },
-    update(frame: PlayerPresentationFrame) {
+    update(frame: DrivingVehicleFrame) {
+      framePosition.set(frame.position.x, 0.06, frame.position.z);
       steeringVisual = THREE.MathUtils.lerp(
         steeringVisual,
         frame.steering * 0.48,
         1 - Math.exp(-12 * frame.dt),
       );
-      car.group.position.copy(frame.position);
+      car.group.position.copy(framePosition);
       car.group.rotation.y = frame.heading;
       car.group.rotation.z = THREE.MathUtils.lerp(
         car.group.rotation.z,
@@ -106,12 +86,12 @@ export function createPlayerPresentation(
       });
       driftSmoke.update(
         frame.dt,
-        frame.position,
+        framePosition,
         frame.heading,
         frame.slipIntensity,
         frame.speed,
       );
-      skidMarks.update(frame.position, frame.heading, frame.slipIntensity, frame.distance);
+      skidMarks.update(framePosition, frame.heading, frame.slipIntensity, frame.distance);
       audio?.update({
         dt: frame.dt,
         speed: frame.speed,
@@ -119,7 +99,7 @@ export function createPlayerPresentation(
         signedSlipDegrees: THREE.MathUtils.radToDeg(frame.visualSlip),
         steeringLoad: Math.abs(frame.steering) * THREE.MathUtils.clamp(frame.speed / 14, 0, 1),
         steerDirection: frame.steering,
-        phase: frame.phase,
+        phase: frame.driftPhase,
         onPavement: frame.onPavement,
         boosting: frame.boosting,
         throttle: frame.throttle,
