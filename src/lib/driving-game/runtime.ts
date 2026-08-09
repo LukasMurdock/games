@@ -6,7 +6,8 @@ import { addLocalDriveResult, getLocalDriveLeaderboard } from "./local-leaderboa
 import { DEFAULT_GAME_MAP_ID, GAME_MAPS, type GameMapDefinition, type GameMapId } from "./maps";
 import { GAME_MODES, type GameModeController, type GameModeId } from "./modes";
 import type { CameraMode, ControlMode, DriveEndReason, DrivingGameOptions } from "./types";
-import { createPlayerController, type PlayerControlName } from "./player";
+import type { PlayerControlName } from "./player";
+import { createLocalDrivingSession } from "./session/local-driving-session";
 import { buildWorld } from "./world/build-world";
 
 
@@ -231,7 +232,7 @@ export function startDrivingGame(root: HTMLElement, options: DrivingGameOptions 
     modeController?.reset(reason);
   }
 
-  const player = createPlayerController({
+  const player = createLocalDrivingSession({
     scene,
     world,
     profile: DRIVING,

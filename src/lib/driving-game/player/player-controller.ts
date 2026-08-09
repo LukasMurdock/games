@@ -1,9 +1,11 @@
 import * as THREE from "three";
-import { createCarAudio, type CarAudio } from "../audio/car-audio";
+import { createDrivingControlState } from "../core/controls";
+import {
+  createDrivingWorldQuery,
+  type DrivingWorldQuery,
+} from "../core/world-query";
 import type { DrivingProfile } from "../driving-profiles";
 import type { ControlMode, DriftPhase, DriveEndReason } from "../types";
-import { createCar } from "../vehicle/create-car";
-import { createDriftSmoke, createSkidMarks } from "../vehicle/effects";
 import type { WorldRuntime } from "../world/types";
 import type {
   PlayerControlName,
@@ -12,35 +14,44 @@ import type {
   PlayerExternalCollision,
   PlayerSnapshot,
 } from "./types";
+import {
+  createNullPlayerPresentation,
+  createPlayerPresentation,
+  type PlayerPresentation,
+} from "./player-presentation";
 
 const CAR_RADIUS = 1.25;
 
 export function createPlayerController({
   scene,
+  presentation: suppliedPresentation,
   world: initialWorld,
+  worldQuery: suppliedWorldQuery,
   profile,
   controlMode: initialControlMode,
   onEvent,
   onResetRequested,
 }: {
-  scene: THREE.Scene;
-  world: WorldRuntime;
+  scene?: THREE.Scene;
+  presentation?: PlayerPresentation;
+  world?: WorldRuntime;
+  worldQuery?: DrivingWorldQuery;
   profile: DrivingProfile;
   controlMode: ControlMode;
   onEvent: (event: PlayerEvent) => void;
   onResetRequested: (reason: DriveEndReason) => void;
 }): PlayerController {
-  let world = initialWorld;
+  if (!initialWorld && !suppliedWorldQuery) {
+    throw new Error("PlayerController requires a world or DrivingWorldQuery.");
+  }
+  let worldQuery = suppliedWorldQuery ?? createDrivingWorldQuery(initialWorld as WorldRuntime);
   let DRIVING = profile;
   let controlMode = initialControlMode;
-  const car = createCar();
-  scene.add(car.group);
-  const driftSmoke = createDriftSmoke(scene);
-  const skidMarks = createSkidMarks(scene);
-  const position = world.spawnPosition.clone();
+  const presentation = suppliedPresentation
+    ?? (scene ? createPlayerPresentation(scene, profile) : createNullPlayerPresentation());
+  const position = new THREE.Vector3(worldQuery.spawn.x, 0.06, worldQuery.spawn.z);
   const velocity = new THREE.Vector3();
-  let heading = world.spawnHeading;
-  let steeringVisual = 0;
+  let heading = worldQuery.spawn.heading;
   let cameraShake = 0;
   let driftPhase: DriftPhase = "grip";
   let reportedDriftPhase: DriftPhase = "grip";
@@ -54,8 +65,6 @@ export function createPlayerController({
   let hardDriftEntry = false;
   let hardDriftReentryTime = 0;
   let hardDriftReentryDirection = 0;
-  let lastSteerTapTime = Number.NEGATIVE_INFINITY;
-  let lastSteerTapDirection = 0;
   let transitionIntentTime = 0;
   let transitionStartSlip = 0;
   let driftEntrySpeed = 0;
@@ -66,8 +75,6 @@ export function createPlayerController({
   let visualSlip = 0;
   let bodyKick = 0;
   let previousHandbrake = false;
-  let carAudio: CarAudio | null = null;
-  let audioPaused = false;
   // Snapshot vectors are detached from simulation state so consumers cannot move the player accidentally.
   const snapshot: PlayerSnapshot = {
     position: position.clone(),
@@ -81,38 +88,22 @@ export function createPlayerController({
     exitPulse,
   };
 
-  const controls: Record<PlayerControlName, boolean> = {
-    left: false,
-    right: false,
-    handbrake: false,
-    accelerate: false,
-    brake: false,
-  };
+  const controlState = createDrivingControlState(DRIVING.hardDrift.doubleTapWindow);
+  const controls = controlState.pressed;
 
   function setControl(name: PlayerControlName, pressed: boolean) {
-    if ((name === "left" || name === "right") && pressed && !controls[name]) {
-      const tapTime = performance.now() / 1000;
-      const tapDirection = name === "left" ? 1 : -1;
-      if (hardDriftReentryTime > 0 && tapDirection !== hardDriftReentryDirection) {
-        hardDriftReentryTime = 0;
-        hardDriftReentryDirection = 0;
-      }
-      if (
-        tapTime - lastSteerTapTime <= DRIVING.hardDrift.doubleTapWindow
-        && tapDirection === lastSteerTapDirection
-      ) {
-        hardDriftInputBuffer = DRIVING.hardDrift.inputBuffer;
-      }
-      lastSteerTapTime = tapTime;
-      lastSteerTapDirection = tapDirection;
+    const tapDirection = name === "left" ? 1 : name === "right" ? -1 : 0;
+    if (pressed && tapDirection !== 0 && hardDriftReentryTime > 0 && tapDirection !== hardDriftReentryDirection) {
+      hardDriftReentryTime = 0;
+      hardDriftReentryDirection = 0;
     }
-    controls[name] = pressed;
+    if (controlState.set(name, pressed).hardDriftDoubleTap) {
+      hardDriftInputBuffer = DRIVING.hardDrift.inputBuffer;
+    }
   }
 
   function clearControls() {
-    for (const key of Object.keys(controls) as PlayerControlName[]) controls[key] = false;
-    lastSteerTapTime = Number.NEGATIVE_INFINITY;
-    lastSteerTapDirection = 0;
+    controlState.clear();
     hardDriftInputBuffer = 0;
     hardDriftReentryTime = 0;
     hardDriftReentryDirection = 0;
@@ -128,7 +119,7 @@ export function createPlayerController({
       velocity.z += collision.normalZ * impulse;
       velocity.multiplyScalar(THREE.MathUtils.lerp(0.98, 0.88, impactStrength));
       cameraShake = Math.min(0.5, cameraShake + impactStrength * 0.22);
-      if (collision.closingSpeed > 2) carAudio?.impact(impactStrength);
+      if (collision.closingSpeed > 2) presentation.impact(impactStrength);
       onEvent({
         type: "collision",
         obstacleType: "vehicle",
@@ -136,13 +127,13 @@ export function createPlayerController({
         strength: impactStrength,
       });
     }
-    car.group.position.copy(position);
+    presentation.syncPosition(position);
   }
 
   function reset() {
-    position.copy(world.spawnPosition);
+    position.set(worldQuery.spawn.x, 0.06, worldQuery.spawn.z);
     velocity.set(0, 0, 0);
-    heading = world.spawnHeading;
+    heading = worldQuery.spawn.heading;
     driftPhase = "grip";
     reportedDriftPhase = "grip";
     driftDirection = 0;
@@ -155,8 +146,7 @@ export function createPlayerController({
     hardDriftEntry = false;
     hardDriftReentryTime = 0;
     hardDriftReentryDirection = 0;
-    lastSteerTapTime = Number.NEGATIVE_INFINITY;
-    lastSteerTapDirection = 0;
+    controlState.clear();
     transitionIntentTime = 0;
     transitionStartSlip = 0;
     driftEntrySpeed = 0;
@@ -168,14 +158,11 @@ export function createPlayerController({
     bodyKick = 0;
     cameraShake = 0;
     previousHandbrake = false;
-    driftSmoke.reset();
-    skidMarks.reset();
-    carAudio?.reset();
-    car.group.position.copy(position);
-    car.group.rotation.set(0, heading, 0);
+    presentation.reset(position, heading);
   }
 
   function update(dt: number) {
+    controlState.advance(dt);
     let forward = new THREE.Vector3(Math.sin(heading), 0, Math.cos(heading));
     let forwardSpeed = velocity.dot(forward);
     const speed = velocity.length();
@@ -185,7 +172,7 @@ export function createPlayerController({
     const reverseInput = controlMode === "manual" && controls.brake;
     let braking = false;
     let reversing = forwardSpeed < -0.35;
-    const onPavement = world.isOnPavement(position);
+    const onPavement = worldQuery.isOnPavement(position.x, position.z);
 
     // A short buffer makes pressing Drift just before steering feel intentional rather than missed.
     if (handbrakePressed) driftInputBuffer = DRIVING.inputBuffer;
@@ -524,42 +511,32 @@ export function createPlayerController({
     const slipIntensity = THREE.MathUtils.clamp((Math.abs(THREE.MathUtils.radToDeg(visualSlip)) - 5) / 30, 0, 1)
       * THREE.MathUtils.clamp(finalSpeed / 10, 0, 1);
 
-    steeringVisual = THREE.MathUtils.lerp(steeringVisual, steer * 0.48, 1 - Math.exp(-12 * dt));
     const transitionSettle = driftPhase === "transition"
       ? Math.abs(phaseTime / DRIVING.drift.transitionDuration - 0.5) * 2
       : 1;
-    const targetRoll = THREE.MathUtils.clamp(
-      (-steer * 0.025 + visualSlip * 0.12) * transitionSettle,
-      -0.075,
-      0.075,
-    );
-    const targetPitch = bodyKick * 0.035 - exitPulse * 0.025;
-    car.group.position.copy(position);
-    car.group.rotation.y = heading;
-    car.group.rotation.z = THREE.MathUtils.lerp(car.group.rotation.z, targetRoll, 1 - Math.exp(-7 * dt));
-    car.group.rotation.x = THREE.MathUtils.lerp(car.group.rotation.x, targetPitch, 1 - Math.exp(-9 * dt));
-    car.frontWheels.forEach((wheel) => (wheel.rotation.y = steeringVisual));
-    const wheelSpin = forwardSpeed * dt / 0.42;
-    car.wheels.forEach((wheel) => (wheel.rotation.x += wheelSpin));
-    car.brakeLights.forEach((light) => {
-      const material = light.material as THREE.MeshStandardMaterial;
-      material.emissiveIntensity = braking || controls.handbrake || hardDriftKick > 0.05 ? 5 : 1.2;
-    });
-
-    driftSmoke.update(dt, position, heading, slipIntensity, finalSpeed);
-    skidMarks.update(position, heading, slipIntensity, distance);
-    carAudio?.update({
+    presentation.update({
       dt,
-      speed: finalSpeed,
+      position,
+      heading,
+      steering: steer,
       forwardSpeed: finalForwardSpeed,
-      signedSlipDegrees: THREE.MathUtils.radToDeg(visualSlip),
-      steeringLoad: Math.abs(steer) * THREE.MathUtils.clamp(finalSpeed / 14, 0, 1),
-      steerDirection: steer,
+      braking,
+      handbrake: controls.handbrake,
+      hardDriftKick,
+      visualSlip,
+      slipIntensity,
+      speed: finalSpeed,
+      distance,
+      targetRoll: THREE.MathUtils.clamp(
+        (-steer * 0.025 + visualSlip * 0.12) * transitionSettle,
+        -0.075,
+        0.075,
+      ),
+      targetPitch: bodyKick * 0.035 - exitPulse * 0.025,
       phase: driftPhase,
       onPavement,
       boosting: exitBoost > 0,
       throttle: finalReversing && reverseInput ? 1 : throttleInput,
-      braking,
       reversing: finalReversing,
     });
     if (driftPhase !== reportedDriftPhase) {
@@ -569,11 +546,11 @@ export function createPlayerController({
   }
 
   function resolveCollisions() {
-    const collision = world.queryCollision(position, CAR_RADIUS);
+    const collision = worldQuery.queryCollision(position.x, position.z, CAR_RADIUS);
     if (collision) {
       const strength = Math.min(1, velocity.length() / 18);
       if (collision.resetsCar) {
-        carAudio?.impact(strength);
+        presentation.impact(strength);
         onEvent({ type: "collision", obstacleType: collision.kind, terminal: true, strength });
         onResetRequested("collision");
         return;
@@ -584,7 +561,7 @@ export function createPlayerController({
       const impact = velocity.x * collision.normalX + velocity.z * collision.normalZ;
       if (impact < 0) {
         const impactStrength = Math.min(1, Math.abs(impact) / 14);
-        if (Math.abs(impact) > 3) carAudio?.impact(impactStrength);
+        if (Math.abs(impact) > 3) presentation.impact(impactStrength);
         onEvent({
           type: "collision",
           obstacleType: collision.kind,
@@ -598,9 +575,9 @@ export function createPlayerController({
       }
     }
 
-    if (world.isOutsideBoundary(position, CAR_RADIUS)) {
+    if (worldQuery.isOutsideBoundary(position.x, position.z, CAR_RADIUS)) {
       const strength = Math.min(1, velocity.length() / 18);
-      carAudio?.impact(strength);
+      presentation.impact(strength);
       onEvent({ type: "collision", obstacleType: "boundary", terminal: true, strength });
       onResetRequested("boundary");
     }
@@ -624,26 +601,20 @@ export function createPlayerController({
 
   return {
     start() {
-      carAudio ??= createCarAudio(DRIVING);
+      presentation.start();
     },
     update,
     setWorld(nextWorld) {
-      world = nextWorld;
+      worldQuery = createDrivingWorldQuery(nextWorld);
     },
     setControlMode(nextMode) {
       controlMode = nextMode;
       clearControls();
     },
     setDrivingProfile(nextProfile) {
-      const audioWasStarted = carAudio !== null;
-      carAudio?.destroy();
-      carAudio = null;
       DRIVING = nextProfile;
-      if (audioWasStarted) {
-        const nextAudio = createCarAudio(DRIVING);
-        nextAudio?.setPaused(audioPaused);
-        carAudio = nextAudio;
-      }
+      controlState.setDoubleTapWindow(DRIVING.hardDrift.doubleTapWindow);
+      presentation.setProfile(nextProfile);
     },
     setControl,
     clearControls,
@@ -653,19 +624,17 @@ export function createPlayerController({
       reset();
       position.set(x, 0.06, z);
       heading = nextHeading;
-      car.group.position.copy(position);
-      car.group.rotation.set(0, heading, 0);
+      presentation.reset(position, heading);
     },
     setPaused(paused) {
-      audioPaused = paused;
-      carAudio?.setPaused(paused);
+      presentation.setPaused(paused);
     },
     getSnapshot,
     decayCameraShake(dt) {
       cameraShake *= Math.exp(-9 * dt);
     },
     destroy() {
-      carAudio?.destroy();
+      presentation.destroy();
     },
   };
 }

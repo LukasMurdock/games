@@ -1,9 +1,10 @@
 import type * as THREE from "three";
+import type { DrivingControlName } from "../core/controls";
 import type { DrivingProfile } from "../driving-profiles";
 import type { ControlMode, DriftPhase } from "../types";
 import type { ObstacleKind, WorldRuntime } from "../world/types";
 
-export type PlayerControlName = "left" | "right" | "handbrake" | "accelerate" | "brake";
+export type PlayerControlName = DrivingControlName;
 
 export type PlayerExternalCollision = {
   normalX: number;
