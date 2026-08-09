@@ -1,0 +1,32 @@
+; Conformance-game extension example.
+; Validate after concatenating this file with ../gamenet-v1.cddl.
+
+$game-input /= circle-input
+$game-snapshot /= circle-snapshot
+$game-event /= circle-event
+
+vec2 = [x: float, y: float]
+
+circle-input = {
+  0 => vec2,                 ; requested movement direction
+  * uint => any
+}
+
+circle-snapshot = {
+  0 => [* circle-player],
+  * uint => any
+}
+
+circle-player = {
+  0 => player-id,
+  1 => vec2,                 ; authoritative position
+  * uint => any
+}
+
+circle-event = {
+  0 => circle-event-type,
+  ? 1 => player-id,
+  * uint => any
+}
+
+circle-event-type = 0 / 1  ; joined / left

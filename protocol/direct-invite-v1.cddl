@@ -1,0 +1,32 @@
+; GameNet Direct Invite v1 — normative schema
+
+direct-message = direct-invite / direct-response
+
+direct-invite = [0, {
+  0 => direct-version,
+  1 => session-id,
+  2 => peer-slot,
+  3 => offer-sdp,
+  4 => invite-secret,
+  ? 5 => unix-seconds,
+  * extension-key => any
+}]
+
+direct-response = [1, {
+  0 => direct-version,
+  1 => session-id,
+  2 => peer-slot,
+  3 => answer-sdp,
+  4 => response-proof,
+  * extension-key => any
+}]
+
+direct-version = 1
+session-id = bstr .size 16
+peer-slot = 0..4294967295
+offer-sdp = tstr .size (1..32768)
+answer-sdp = tstr .size (1..32768)
+invite-secret = bstr .size 32
+response-proof = bstr .size 32
+unix-seconds = 0..9007199254740991
+extension-key = 0..65535

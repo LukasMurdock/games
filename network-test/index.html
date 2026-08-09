@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="theme-color" content="#101714" />
+    <meta name="description" content="Manual WebRTC networking conformance test." />
+    <title>WebRTC Network Test</title>
+  </head>
+  <body>
+    <main>
+      <header>
+        <p class="eyebrow">Networking conformance test</p>
+        <h1>Connect two browser tabs.</h1>
+        <p>
+          This page exchanges self-contained Direct Invite and Response links through your existing messaging app. No signaling service is involved.
+        </p>
+      </header>
+
+      <section class="status-panel" aria-labelledby="status-title">
+        <div>
+          <p class="eyebrow" id="status-title">Connection</p>
+          <strong id="connection-status" data-state="idle">Idle</strong>
+        </div>
+        <dl>
+          <div><dt>Role</dt><dd id="role-status">—</dd></div>
+          <div><dt>ICE</dt><dd id="ice-status">new</dd></div>
+          <div><dt>Reliable</dt><dd id="reliable-status">closed</dd></div>
+          <div><dt>Realtime</dt><dd id="realtime-status">closed</dd></div>
+          <div><dt>GameNet</dt><dd id="game-session-status">idle</dd></div>
+          <div><dt>Player</dt><dd id="player-id-status">—</dd></div>
+          <div><dt>Tick</dt><dd id="tick-status">0</dd></div>
+          <div><dt>Players</dt><dd id="player-count-status">0</dd></div>
+        </dl>
+        <button id="close-connection" class="secondary" type="button" disabled>Close connection</button>
+      </section>
+
+      <section aria-labelledby="instructions-title">
+        <p class="eyebrow" id="instructions-title">Manual setup</p>
+        <ol class="instructions">
+          <li>The host creates a named or unnamed invite and sends its link to one friend.</li>
+          <li>The friend opens it, then sends the generated response link back to the host.</li>
+          <li>The host opens that response link; this running tab consumes it automatically.</li>
+        </ol>
+
+        <div class="setup-grid">
+          <article>
+            <p class="step">Host tab</p>
+            <h2>Create private invites</h2>
+            <p class="slot-intro">Each invite owns one connection slot while the host simulation keeps running.</p>
+            <label for="invite-name">Friend name <span class="optional">optional, local only</span></label>
+            <input id="invite-name" maxlength="40" autocomplete="off" placeholder="Jamie" />
+            <button id="create-offer" type="button">Create invite</button>
+            <div id="host-slots" class="host-slots" aria-live="polite"></div>
+          </article>
+
+          <article>
+            <p class="step">Invite landing</p>
+            <h2 id="direct-action-title">Open an invite link</h2>
+            <p id="direct-action-status" class="direct-action-status">A Direct Invite or Response link will be handled automatically in this tab.</p>
+            <a id="direct-action-link" class="direct-action-link" hidden></a>
+            <button id="copy-direct-action" class="secondary" type="button" hidden>Copy link</button>
+          </article>
+        </div>
+      </section>
+
+      <section aria-labelledby="game-title">
+        <p class="eyebrow">Authoritative conformance game</p>
+        <div class="game-heading">
+          <div>
+            <h2 id="game-title">Moving circles</h2>
+            <p>Use arrows or WASD from anywhere on this page. Clients send direction intent; only the host advances positions.</p>
+          </div>
+          <span class="protocol-badge">GameNet v1 · CBOR</span>
+        </div>
+        <div class="arena-shell">
+          <canvas id="circle-arena" width="960" height="540" tabindex="0" aria-label="Moving circles game arena"></canvas>
+          <div class="arena-empty" id="arena-empty">Create a host offer or connect as a client to start.</div>
+        </div>
+        <div class="game-controls" aria-label="Movement controls">
+          <span><kbd>WASD</kbd> or <kbd>Arrow keys</kbd></span>
+          <div class="direction-pad">
+            <button type="button" data-direction="up" aria-label="Move up">↑</button>
+            <button type="button" data-direction="left" aria-label="Move left">←</button>
+            <button type="button" data-direction="down" aria-label="Move down">↓</button>
+            <button type="button" data-direction="right" aria-label="Move right">→</button>
+          </div>
+        </div>
+      </section>
+
+      <section aria-labelledby="log-title">
+        <div class="log-heading">
+          <div>
+            <p class="eyebrow" id="log-title">Event log</p>
+            <h2>Session diagnostics</h2>
+          </div>
+          <button id="clear-log" class="secondary" type="button">Clear</button>
+        </div>
+        <ol id="event-log" class="event-log" aria-live="polite"></ol>
+      </section>
+    </main>
+    <script type="module" src="/src/network-test.ts"></script>
+  </body>
+</html>

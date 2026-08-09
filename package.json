@@ -10,14 +10,17 @@
     "deploy": "pnpm run build && wrangler deploy --profile lukasmurdock",
     "check": "tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.worker.json",
     "test": "vitest run --config vitest.config.ts",
+    "test:network-browser": "node scripts/network-conformance.mjs",
     "types:generate": "wrangler types"
   },
   "dependencies": {
+    "cbor2": "2.3.0",
     "three": "^0.185.1"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "^1.51.1",
     "@types/three": "^0.185.4",
+    "playwright-core": "^1.62.1",
     "typescript": "^7.0.2",
     "vite": "^8.2.1",
     "vitest": "^4.1.10",

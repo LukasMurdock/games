@@ -1,0 +1,68 @@
+; GameNet Protocol v1 — normative core schema
+; Game schemas extend the three CDDL type sockets below.
+
+gamenet-message =
+    hello
+  / welcome
+  / input
+  / snapshot
+  / event
+  / ping
+  / pong
+  / disconnect
+  / protocol-error
+
+hello = [0, {
+  0 => [+ supported-major], ; supported protocol majors, preference order
+  1 => game-id,
+  2 => ruleset-id,
+  ? 3 => [* feature-id],
+  * uint => any
+}]
+
+welcome = [1, {
+  0 => protocol-major,     ; selected major
+  1 => player-id,
+  2 => game-id,
+  3 => ruleset-id,
+  ? 4 => [* feature-id],   ; selected intersection
+  * uint => any
+}]
+
+input = [2, {
+  0 => sequence,
+  1 => $game-input,
+  * uint => any
+}]
+
+snapshot = [3, {
+  0 => tick,
+  1 => $game-snapshot,
+  * uint => any
+}]
+
+event = [4, {
+  0 => tick,
+  1 => $game-event,
+  * uint => any
+}]
+
+; RFC 8610 type sockets: each game adds exactly one concrete choice.
+
+ping = [5, { 0: request-id, * uint => any }]
+pong = [6, { 0: request-id, * uint => any }]
+disconnect = [7, { 0: disconnect-code, ? 1: short-text, * uint => any }]
+protocol-error = [8, { 0: error-code, ? 1: short-text, * uint => any }]
+
+supported-major = 0..65535
+protocol-major = 1
+feature-id = 0..65535
+sequence = 0..4294967295
+tick = 0..4294967295
+request-id = 0..4294967295
+disconnect-code = 0..65535
+error-code = 0..65535
+game-id = tstr .size (1..64)
+player-id = tstr .size (1..64)
+ruleset-id = bstr .size (16..64)
+short-text = tstr .size (1..256)

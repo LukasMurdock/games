@@ -17,6 +17,7 @@ export default defineConfig({
           input: {
             drive: resolve(import.meta.dirname, "index.html"),
             dyno: resolve(import.meta.dirname, "dyno/index.html"),
+            networkTest: resolve(import.meta.dirname, "network-test/index.html"),
           },
         },
       },
