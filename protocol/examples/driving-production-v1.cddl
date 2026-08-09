@@ -1,0 +1,47 @@
+; Production authoritative driving extension.
+; Validate after concatenating this file with ../gamenet-v1.cddl.
+
+$game-input /= production-driving-input
+$game-snapshot /= production-driving-snapshot
+$game-event /= production-driving-event
+
+production-driving-input = {
+  0 => -1 / 0 / 1,            ; steering: left / neutral / right
+  1 => number .ge 0 .le 1,  ; throttle
+  2 => bool,                ; brake
+  3 => bool,                ; handbrake
+  * uint => any
+}
+
+production-driving-snapshot = {
+  0 => [*8 production-driving-player],
+  * uint => any
+}
+
+production-driving-player = {
+  0 => player-id,
+  1 => production-driving-vec2, ; authoritative x/z position
+  2 => production-driving-vec2, ; authoritative x/z velocity
+  3 => number,                  ; heading in radians
+  4 => number .ge 0,            ; speed
+  5 => number,                  ; signed visual slip in radians
+  6 => 0..4,                    ; drift phase
+  7 => bool,                    ; boosting
+  8 => number .ge 0,            ; exit pulse
+  * uint => any
+}
+
+production-driving-event = production-driving-joined
+  / production-driving-left
+  / production-driving-collision
+production-driving-joined = { 0 => 0, 1 => player-id, * uint => any }
+production-driving-left = { 0 => 1, 1 => player-id, * uint => any }
+production-driving-collision = {
+  0 => 2,
+  1 => player-id,
+  ? 2 => player-id, ; other vehicle when this is a vehicle collision
+  3 => bool,        ; terminal
+  * uint => any
+}
+
+production-driving-vec2 = [number, number]

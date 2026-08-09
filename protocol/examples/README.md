@@ -1,6 +1,6 @@
 # GameNet v1 examples
 
-`moving-circles-v1.cddl` extends the three GameNet type sockets with a minimal conformance-game schema. `driving-v1.cddl` specifies the separate authoritative driving pilot payloads. The `.diag` files are CBOR diagnostic notation instances of the resulting `gamenet-message` root rule.
+`moving-circles-v1.cddl` extends the three GameNet type sockets with a minimal conformance-game schema. `driving-v1.cddl` specifies the simplified authoritative driving pilot payloads, while `driving-production-v1.cddl` specifies snapshots from the extracted production vehicle mechanics. The `.diag` files are CBOR diagnostic notation instances of the resulting `gamenet-message` root rule.
 
 To validate with the Ruby [`cddl`](https://rubygems.org/gems/cddl) reference tooling:
 

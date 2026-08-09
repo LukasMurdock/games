@@ -1,6 +1,6 @@
 # Multiplayer architecture
 
-Status: GameNet/Direct Invite kernel proven; authoritative driving pilot available as a separate mode.
+Status: GameNet/Direct Invite kernel proven; production driving simulation integrated headlessly with HostRuntime and ClientRuntime.
 
 ## Decision
 
@@ -85,7 +85,7 @@ interface GameSimulation<Input, State> {
 
 The original single-player controller mixed mechanics, Three.js, audio, effects, browser input timing, and render timing. The ownership inversion is complete: deterministic control timing lives in `core/`; map access crosses a numeric `DrivingWorldQuery`; `DrivingVehicleSimulation` exclusively owns plain numeric handling state, collision response, and deterministic time-step updates; visual/audio/effect mutation lives in `PlayerPresentation`; and the browser composes an explicit `LocalDrivingSession`. `PlayerController` is now only a compatibility adapter between detached simulation state and the existing local presentation API. Existing local cameras, modes, and presentation remain unchanged.
 
-The multiplayer pilot still uses its intentionally small conformance simulation. Production multiplayer must replace that pilot with per-player instances of the extracted production mechanics rather than growing a second vehicle model.
+The browser multiplayer pilot still uses its intentionally small conformance simulation. The production replacement now exists headlessly: `AuthoritativeDrivingSimulation` creates one extracted production vehicle core per admitted player, maps bounded client control intent, assigns deterministic non-overlapping spawns, resolves vehicle collisions authoritatively, and publishes presentation-complete snapshots through `HostRuntime` and `ClientRuntime`. The next step is remote snapshot interpolation and Three.js presentation, not another physics implementation.
 
 ### Protocol
 

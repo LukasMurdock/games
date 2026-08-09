@@ -87,7 +87,7 @@ $game-snapshot /= circle-snapshot
 $game-event /= circle-event
 ```
 
-A game specification must extend all three sockets with one concrete body type and maintain its own permanent field/event registry. The ruleset ID identifies that compatibility contract. The authoritative driving pilot is specified by [`examples/driving-v1.cddl`](examples/driving-v1.cddl) and [`driving-registry.md`](driving-registry.md).
+A game specification must extend all three sockets with one concrete body type and maintain its own permanent field/event registry. The ruleset ID identifies that compatibility contract. The simplified authoritative driving pilot is specified by [`examples/driving-v1.cddl`](examples/driving-v1.cddl) and [`driving-registry.md`](driving-registry.md). The extracted production mechanics use the separate [`examples/driving-production-v1.cddl`](examples/driving-production-v1.cddl) and [`driving-production-registry.md`](driving-production-registry.md) ruleset.
 
 ## Channels and direction
 

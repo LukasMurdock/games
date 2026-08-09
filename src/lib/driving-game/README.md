@@ -15,6 +15,7 @@ The driving game is split along the things that can vary independently:
 - `local-leaderboard.ts` — persistent local drive results and future command-facing queries.
 - `maps/` — world geometry, environment settings, pavement, spawn, and boundaries.
 - `modes/` — rules, mode-specific actors, lifecycle, and presentation copy.
+- `multiplayer/` — production `GameSimulation`, bounded GameNet payload codec, deterministic spawn ownership, and authoritative vehicle collision orchestration.
 - `types.ts` — launch options and shared runtime state names.
 - `design.md` — experiential north star.
 
