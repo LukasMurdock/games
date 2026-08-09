@@ -1,0 +1,36 @@
+; Authoritative driving pilot extension.
+; Validate after concatenating this file with ../gamenet-v1.cddl.
+
+$game-input /= driving-input
+$game-snapshot /= driving-snapshot
+$game-event /= driving-event
+
+driving-input = {
+  0 => number .ge -1 .le 1, ; steering
+  1 => number .ge 0 .le 1,  ; throttle
+  2 => bool,                ; brake
+  3 => bool,                ; handbrake
+  * uint => any
+}
+
+driving-snapshot = {
+  0 => [*8 driving-player],
+  * uint => any
+}
+
+driving-player = {
+  0 => player-id,
+  1 => driving-vec2, ; authoritative x/z position
+  2 => driving-vec2, ; authoritative x/z velocity
+  3 => number,       ; heading in radians
+  4 => number .ge 0, ; speed
+  * uint => any
+}
+
+driving-event = driving-joined / driving-left / driving-collision
+
+driving-joined = { 0 => 0, 1 => player-id, * uint => any }
+driving-left = { 0 => 1, 1 => player-id, * uint => any }
+driving-collision = { 0 => 2, 1 => player-id, ? 2 => player-id, * uint => any }
+
+driving-vec2 = [number, number]

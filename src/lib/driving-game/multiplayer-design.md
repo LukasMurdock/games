@@ -1,6 +1,6 @@
 # Multiplayer architecture
 
-Status: accepted direction; implementation not yet part of the public driving game.
+Status: GameNet/Direct Invite kernel proven; authoritative driving pilot available as a separate mode.
 
 ## Decision
 
@@ -83,7 +83,7 @@ interface GameSimulation<Input, State> {
 
 `HostRuntime` owns player admission, the fixed simulation clock, input application, and authoritative snapshot publication. Browser and future dedicated hosts reuse the same runtime and simulation.
 
-The current driving controller is not this simulation: it mixes Three.js, audio, effects, browser input, and render timing. Do not network `PlayerSnapshot` or move the current controller behind transport abstractions. Extract a plain-data simulation only after the networking kernel passes its conformance game.
+The current single-player driving controller is not this simulation: it mixes Three.js, audio, effects, browser input, and render timing. It remains untouched. The multiplayer pilot uses a separate plain-data authoritative driving simulation with bounded control intent, fixed-step vehicle motion, world containment, and vehicle collision resolution.
 
 ### Protocol
 
@@ -216,7 +216,7 @@ It must prove:
 - 20–60 Hz updates work under throttling and packet loss;
 - an hour-long session does not leak resources or drift uncontrollably.
 
-Only after this boundary is stable should a headless driving simulation be extracted and connected to it.
+This boundary passed automated one-host/seven-client browser conformance and a physical iOS Safari cellular-to-macOS home-network test. The separate driving pilot now reuses the same runtime and Direct Invite ceremony; single-player remains independent.
 
 ## Implementation order
 

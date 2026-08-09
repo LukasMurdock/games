@@ -423,6 +423,14 @@
     font-size: 10px;
   }
 
+  .intro-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+  }
+
   #start-driving {
     display: inline-flex;
     min-height: 52px;
@@ -442,6 +450,21 @@
     transform: translateY(-2px);
     background: #fff;
   }
+
+  .multiplayer-link {
+    display: inline-flex;
+    min-height: 52px;
+    align-items: center;
+    padding: 0 20px;
+    border: 1px solid rgba(231, 245, 217, 0.42);
+    border-radius: 27px;
+    color: #e7f5d9;
+    font-size: 13px;
+    font-weight: 800;
+    text-decoration: none;
+  }
+
+  .multiplayer-link:hover { border-color: #e7f5d9; background: rgba(231, 245, 217, 0.08); }
 
   .key-guide {
     display: flex;
@@ -749,6 +772,7 @@
     .mode-select button { padding: 7px 10px; }
 
     #start-driving,
+    .multiplayer-link,
     #resume-driving,
     #fullscreen-button { min-height: 42px; }
 

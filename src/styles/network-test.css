@@ -257,6 +257,7 @@ textarea:focus, input:focus, button:focus-visible { outline: 2px solid #9fe0ad; 
 .direction-pad button[data-direction="left"] { grid-column: 1; grid-row: 2; }
 .direction-pad button[data-direction="down"] { grid-column: 2; grid-row: 2; }
 .direction-pad button[data-direction="right"] { grid-column: 3; grid-row: 2; }
+.direction-pad button[data-direction="handbrake"] { grid-column: 3; grid-row: 1; font-size: 0.62rem; }
 .direction-pad button.is-active { color: #102015; background: #9fe0ad; }
 
 .log-heading { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }

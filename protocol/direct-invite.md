@@ -192,6 +192,10 @@ The conformance page now uses link-only setup: host-local optional names, one in
 
 The eight-browser test uses Direct Invite/Response links exclusively, verifies remote authoritative movement, rejects response replay, isolates client departure, and confirms host shutdown propagation.
 
+## Field validation
+
+A production Direct Invite session successfully connected iOS Safari on cellular with macOS on a separate home network using the STUN-only configuration. This validates the complete messaging-link ceremony, same-origin response handoff, mobile WebRTC support, and a real cross-network path without TURN. It is one successful topology, not a general NAT success-rate measurement.
+
 ## Next validation milestone
 
 1. Measure gathered invite sizes across browsers and networks.

@@ -1,4 +1,17 @@
 import "./styles/network-test.css";
+import {
+  DRIVING_GAME_ID,
+  DRIVING_RULESET_ID,
+  drivingPayloadCodec,
+} from "./conformance/driving/protocol";
+import {
+  drivingSimulation,
+  type DrivingConfig,
+  type DrivingEvent,
+  type DrivingInput,
+  type DrivingSnapshot,
+  type DrivingState,
+} from "./conformance/driving/simulation";
 import { movingCirclesPayloadCodec } from "./conformance/moving-circles/protocol";
 import {
   movingCirclesSimulation,
@@ -27,8 +40,10 @@ import {
 import { DirectInviteSlot } from "./net/invite/slot";
 import type { DirectInvite, DirectResponse } from "./net/invite/types";
 import { GameNetCodec } from "./net/protocol/codec";
+import type { GamePayloadCodec } from "./net/protocol/messages";
 import { ClientRuntime } from "./net/runtime/client";
 import { HostRuntime } from "./net/runtime/host";
+import type { GameSimulation } from "./net/runtime/simulation";
 import { createMemoryPeerPair } from "./net/transport/memory";
 import type { PeerConnection } from "./net/transport/peer";
 import {
@@ -40,28 +55,31 @@ import {
 const ICE_SERVERS: RTCIceServer[] = [
   { urls: "stun:stun.cloudflare.com:3478" },
 ];
-const GAME_ID = "moving-circles";
-const RULESET_ID = Uint8Array.from([
+const IS_DRIVING = new URLSearchParams(window.location.search).get("game") === "driving";
+const CIRCLES_RULESET_ID = Uint8Array.from([
   0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
   0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
 ]);
+const GAME_ID = IS_DRIVING ? DRIVING_GAME_ID : "moving-circles";
+const RULESET_ID = IS_DRIVING ? DRIVING_RULESET_ID : CIRCLES_RULESET_ID;
 const WORLD_RADIUS = 100;
 const INPUT_INTERVAL_MS = 1000 / 30;
-const gameCodec = new GameNetCodec(movingCirclesPayloadCodec);
+
+type AppConfig = MovingCirclesConfig | DrivingConfig;
+type AppInput = MovingCirclesInput | DrivingInput;
+type AppState = MovingCirclesState | DrivingState;
+type AppSnapshot = MovingCirclesSnapshot | DrivingSnapshot;
+type AppEvent = MovingCirclesEvent | DrivingEvent;
+
+const selectedPayloadCodec = (IS_DRIVING ? drivingPayloadCodec : movingCirclesPayloadCodec) as unknown as
+  GamePayloadCodec<AppInput, AppSnapshot, AppEvent>;
+const selectedSimulation = (IS_DRIVING ? drivingSimulation : movingCirclesSimulation) as unknown as
+  GameSimulation<AppConfig, AppInput, AppState, AppSnapshot, AppEvent>;
+const gameCodec = new GameNetCodec(selectedPayloadCodec);
 const directCodec = new DirectInviteCodec();
 
-type CircleClientRuntime = ClientRuntime<
-  MovingCirclesInput,
-  MovingCirclesSnapshot,
-  MovingCirclesEvent
->;
-type CircleHostRuntime = HostRuntime<
-  MovingCirclesConfig,
-  MovingCirclesInput,
-  MovingCirclesState,
-  MovingCirclesSnapshot,
-  MovingCirclesEvent
->;
+type GameClientRuntime = ClientRuntime<AppInput, AppSnapshot, AppEvent>;
+type GameHostRuntime = HostRuntime<AppConfig, AppInput, AppState, AppSnapshot, AppEvent>;
 
 const element = <T extends HTMLElement>(selector: string) => {
   const match = document.querySelector<T>(selector);
@@ -91,6 +109,18 @@ const arena = element<HTMLCanvasElement>("#circle-arena");
 const arenaEmpty = element<HTMLElement>("#arena-empty");
 const arenaContext = getCanvasContext(arena);
 
+if (IS_DRIVING) {
+  document.title = "Drive Together";
+  const gameTitle = element<HTMLElement>("#game-title");
+  gameTitle.textContent = "Authoritative driving";
+  element<HTMLElement>("#game-description").textContent =
+    "Clients send steering, throttle, brake, and handbrake intent. Only the host advances vehicles and resolves collisions.";
+  element<HTMLElement>("#game-control-summary").innerHTML =
+    "<kbd>WASD</kbd> or <kbd>Arrow keys</kbd> · <kbd>Space</kbd> Drift";
+  element<HTMLButtonElement>("#handbrake-control").hidden = false;
+  arena.setAttribute("aria-label", "Authoritative multiplayer driving arena");
+}
+
 function getCanvasContext(canvas: HTMLCanvasElement) {
   const context = canvas.getContext("2d");
   if (!context) throw new Error("Moving-circles requires Canvas 2D.");
@@ -113,11 +143,11 @@ let clientPeer: WebRTCPeerConnection | null = null;
 let role: WebRTCPeerRole | null = null;
 const hostSlots = new Map<number, HostSlot>();
 let nextHostSlotId = 1;
-let hostRuntime: CircleHostRuntime | null = null;
-let localClient: CircleClientRuntime | null = null;
+let hostRuntime: GameHostRuntime | null = null;
+let localClient: GameClientRuntime | null = null;
 let hostSessionId: Uint8Array | null = null;
 let responseReceiver: DirectResponseReceiver | null = null;
-let latestSnapshot: MovingCirclesSnapshot = { players: [] };
+let latestSnapshot: AppSnapshot = { players: [] };
 let latestTick = 0;
 let startedAt = performance.now();
 let lastHostClock = performance.now();
@@ -269,8 +299,10 @@ function startHostSession() {
   if (hostRuntime) return hostRuntime;
   let nextGuest = 1;
   const runtime = new HostRuntime({
-    simulation: movingCirclesSimulation,
-    simulationConfig: { speed: 24, worldRadius: WORLD_RADIUS },
+    simulation: selectedSimulation,
+    simulationConfig: IS_DRIVING
+      ? { worldRadius: WORLD_RADIUS }
+      : { speed: 24, worldRadius: WORLD_RADIUS },
     codec: gameCodec,
     gameId: GAME_ID,
     rulesetId: RULESET_ID,
@@ -483,7 +515,7 @@ function createGameClient(connection: PeerConnection) {
   });
 }
 
-function bindGameClient(client: CircleClientRuntime) {
+function bindGameClient(client: GameClientRuntime) {
   client.onState((state) => {
     if (localClient !== client) return;
     gameSessionStatus.textContent = state;
@@ -600,14 +632,22 @@ function sendCurrentInput(now: number) {
   const client = localClient;
   if (!client || client.state !== "connected") return;
   const direction = currentDirection();
-  const signature = direction.join(",");
-  const directionChanged = signature !== lastInputSignature;
-  if (!directionChanged && now - lastInputSentAt < INPUT_INTERVAL_MS) return;
+  const input: AppInput = IS_DRIVING
+    ? {
+        steering: direction[0],
+        throttle: Number(pressedDirections.has("up")),
+        brake: pressedDirections.has("down"),
+        handbrake: pressedDirections.has("handbrake"),
+      }
+    : { direction };
+  const signature = JSON.stringify(input);
+  const inputChanged = signature !== lastInputSignature;
+  if (!inputChanged && now - lastInputSentAt < INPUT_INTERVAL_MS) return;
   try {
-    client.sendInput({ direction });
+    client.sendInput(input);
     lastInputSignature = signature;
     lastInputSentAt = now;
-    if (directionChanged) log(`Sent input direction [${signature}].`);
+    if (inputChanged) log(IS_DRIVING ? "Sent driving control intent." : `Sent input direction [${direction.join(",")}].`);
   } catch (error) {
     log(errorMessage(error), "error");
   }
@@ -662,14 +702,28 @@ function renderArena() {
     const x = (player.position[0] / (WORLD_RADIUS * 2) + 0.5) * width;
     const y = (player.position[1] / (WORLD_RADIUS * 2) + 0.5) * height;
     const local = player.playerId === localClient?.playerId;
-    arenaContext.beginPath();
-    arenaContext.arc(x, y, local ? 11 : 9, 0, Math.PI * 2);
     arenaContext.fillStyle = playerColor(player.playerId);
-    arenaContext.fill();
-    if (local) {
-      arenaContext.strokeStyle = "#ffffff";
-      arenaContext.lineWidth = 2;
-      arenaContext.stroke();
+    arenaContext.beginPath();
+    if (IS_DRIVING && "heading" in player) {
+      arenaContext.save();
+      arenaContext.translate(x, y);
+      arenaContext.rotate(player.heading);
+      arenaContext.roundRect(-6, -11, 12, 22, 3);
+      arenaContext.fill();
+      if (local) {
+        arenaContext.strokeStyle = "#ffffff";
+        arenaContext.lineWidth = 2;
+        arenaContext.stroke();
+      }
+      arenaContext.restore();
+    } else {
+      arenaContext.arc(x, y, local ? 11 : 9, 0, Math.PI * 2);
+      arenaContext.fill();
+      if (local) {
+        arenaContext.strokeStyle = "#ffffff";
+        arenaContext.lineWidth = 2;
+        arenaContext.stroke();
+      }
     }
     arenaContext.fillStyle = "#dce9df";
     arenaContext.font = "12px ui-monospace, SFMono-Regular, Menlo, monospace";
@@ -710,6 +764,7 @@ const keyDirections: Record<string, string | undefined> = {
   KeyS: "down",
   ArrowRight: "right",
   KeyD: "right",
+  Space: IS_DRIVING ? "handbrake" : undefined,
 };
 
 window.addEventListener("keydown", (event) => {

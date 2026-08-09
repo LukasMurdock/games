@@ -70,7 +70,7 @@
         <div class="game-heading">
           <div>
             <h2 id="game-title">Moving circles</h2>
-            <p>Use arrows or WASD from anywhere on this page. Clients send direction intent; only the host advances positions.</p>
+            <p id="game-description">Use arrows or WASD from anywhere on this page. Clients send direction intent; only the host advances positions.</p>
           </div>
           <span class="protocol-badge">GameNet v1 · CBOR</span>
         </div>
@@ -79,12 +79,13 @@
           <div class="arena-empty" id="arena-empty">Create a host offer or connect as a client to start.</div>
         </div>
         <div class="game-controls" aria-label="Movement controls">
-          <span><kbd>WASD</kbd> or <kbd>Arrow keys</kbd></span>
+          <span id="game-control-summary"><kbd>WASD</kbd> or <kbd>Arrow keys</kbd></span>
           <div class="direction-pad">
             <button type="button" data-direction="up" aria-label="Move up">↑</button>
             <button type="button" data-direction="left" aria-label="Move left">←</button>
             <button type="button" data-direction="down" aria-label="Move down">↓</button>
             <button type="button" data-direction="right" aria-label="Move right">→</button>
+            <button id="handbrake-control" type="button" data-direction="handbrake" aria-label="Handbrake" hidden>Drift</button>
           </div>
         </div>
       </section>

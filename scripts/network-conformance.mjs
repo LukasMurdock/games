@@ -108,12 +108,42 @@ try {
   console.log("GameNet browser conformance passed: 1 host + 7 clients.");
   await Promise.all(clients.map(({ context }) => context.close()));
   await hostContext.close();
+  await testDrivingPilot(browser);
 } catch (error) {
   if (serverOutput) console.error(serverOutput);
   throw error;
 } finally {
   await browser?.close();
   server.kill("SIGTERM");
+}
+
+async function testDrivingPilot(browserInstance) {
+  const hostContext = await browserInstance.newContext();
+  const clientContext = await browserInstance.newContext();
+  const host = await hostContext.newPage();
+  const client = await clientContext.newPage();
+  await host.goto(`${baseUrl}?game=driving`);
+  if (await host.textContent("#game-title") !== "Authoritative driving") {
+    throw new Error("Driving multiplayer mode did not select its protocol adapter.");
+  }
+  await joinClient(host, client, 0);
+  const beforeMove = await host.locator("#circle-arena").screenshot();
+  await client.keyboard.down("ArrowUp");
+  await new Promise((resolve) => setTimeout(resolve, 800));
+  await client.keyboard.up("ArrowUp");
+  await new Promise((resolve) => setTimeout(resolve, 150));
+  const afterMove = await host.locator("#circle-arena").screenshot();
+  if (beforeMove.equals(afterMove)) {
+    throw new Error("Driving throttle intent did not change authoritative vehicle state.");
+  }
+  await host.click("#close-connection");
+  await client.waitForFunction(
+    () => document.querySelector("#game-session-status")?.textContent === "closed",
+    undefined,
+    { timeout: 10_000 },
+  );
+  await Promise.all([hostContext.close(), clientContext.close()]);
+  console.log("Driving browser pilot passed: host + client over Direct Invite links.");
 }
 
 async function joinClient(host, client, index) {
