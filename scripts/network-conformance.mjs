@@ -168,15 +168,24 @@ async function testPublicDrivingMultiplayer(browserInstance) {
     () => document.querySelector(".multiplayer-status")?.textContent?.includes("paused by host"),
   );
   if (await host.isHidden("#pause-button")) throw new Error("Multiplayer host pause control is hidden.");
-  const pausedBefore = await host.locator("#game-canvas").screenshot();
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  const pausedVehicleBefore = await host.locator("#driving-game").getAttribute("data-local-vehicle-position");
+  const pausedCameraBefore = await host.locator("#driving-game").getAttribute("data-local-camera-position");
   await new Promise((resolve) => setTimeout(resolve, 250));
-  const pausedAfter = await host.locator("#game-canvas").screenshot();
-  if (!pausedBefore.equals(pausedAfter)) throw new Error("Paused multiplayer presentation continued moving.");
+  const pausedVehicleAfter = await host.locator("#driving-game").getAttribute("data-local-vehicle-position");
+  const pausedCameraAfter = await host.locator("#driving-game").getAttribute("data-local-camera-position");
+  if (pausedVehicleBefore !== pausedVehicleAfter || pausedCameraBefore !== pausedCameraAfter) {
+    throw new Error("Paused multiplayer vehicle or camera presentation continued moving.");
+  }
   await host.click("#pause-button");
   await host.waitForFunction(
     () => document.querySelector(".multiplayer-status")?.textContent?.includes("resumed"),
   );
   await host.selectOption(".multiplayer-map", "crosswind");
+  await host.selectOption(".multiplayer-map", "city-circuit");
+  if (await host.locator(".multiplayer-map").inputValue() !== "crosswind") {
+    throw new Error("Host accepted an overlapping map transition.");
+  }
   await client.waitForFunction(
     () => document.querySelector("#driving-game")?.getAttribute("data-game-map") === "crosswind",
     undefined,
@@ -191,6 +200,11 @@ async function testPublicDrivingMultiplayer(browserInstance) {
     { timeout: 20_000 },
   );
   await host.click("#pause-button");
+  await client.waitForFunction(
+    () => document.querySelector(".multiplayer-diagnostics")?.textContent?.includes("RTT"),
+    undefined,
+    { timeout: 10_000 },
+  );
   await client.waitForFunction(
     () => document.querySelector(".multiplayer-status")?.textContent === "Connected to host.",
     undefined,

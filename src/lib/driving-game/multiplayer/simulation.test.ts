@@ -105,6 +105,7 @@ describe("production authoritative driving simulation", () => {
       spawns: [
         { x: -8, z: 0, heading: 0 },
         { x: 8, z: 0, heading: 0 },
+        { x: 24, z: 0, heading: 0 },
       ],
     }));
     const configured = authoritativeDrivingSimulation.snapshot(state);
@@ -121,6 +122,10 @@ describe("production authoritative driving simulation", () => {
     authoritativeDrivingSimulation.input(state, "two", {
       steering: 0, throttle: 0, brake: false, handbrake: false, readyEpoch: 1,
     });
+    expect(areAuthoritativeDrivingPlayersReady(state)).toBe(true);
+    authoritativeDrivingSimulation.addPlayer(state, "late");
+    expect(areAuthoritativeDrivingPlayersReady(state)).toBe(false);
+    authoritativeDrivingSimulation.removePlayer(state, "late");
     expect(areAuthoritativeDrivingPlayersReady(state)).toBe(true);
     setAuthoritativeDrivingPaused(state, false);
     expect(authoritativeDrivingSimulation.snapshot(state).paused).toBe(false);

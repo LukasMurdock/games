@@ -135,7 +135,7 @@ https://game.example/#response=<base64url-cbor>
 
 Fragments are not sent to the static server. Invite and response payloads are versioned, self-contained, session- and slot-bound, size-bounded, and one-use. Complete non-trickle SDP includes gathered ICE candidates. A fresh random invite secret proves that the response belongs to that invite; it is a bearer capability, not personal identity.
 
-Optional friend names remain local host UI metadata. Clicking a response link should hand it to the existing same-origin host tab via `BroadcastChannel`, receive acknowledgement, and close the landing tab when the browser permits.
+Optional friend names remain local host UI metadata. Invite and response controls support both explicit clipboard feedback and the platform-native Share sheet when available. Clicking a response link should hand it to the existing same-origin host tab via `BroadcastChannel`, receive acknowledgement, and close the landing tab when the browser permits.
 
 ## ICE
 
@@ -174,6 +174,8 @@ Version-one lifecycle rules:
 - while paused, the host may select a registered multiplayer map;
 - configuration epochs clear stale interpolation, synchronize rendered-world replacement, and reset camera tracking rather than easing across maps;
 - every connected client must acknowledge the loaded epoch before host resume;
+- overlapping map transitions are rejected, load failures close the affected session, and prolonged waits report how many players remain;
+- the public overlay reports RTT, snapshot jitter, interpolation underflow, extrapolation, and buffer depth;
 - losing the host ends the session;
 - reconnect and host migration are deferred.
 

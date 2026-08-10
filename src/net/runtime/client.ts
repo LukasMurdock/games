@@ -34,6 +34,7 @@ export class ClientRuntime<Input, Snapshot, Event> {
   private readonly stateHandlers = new Set<(state: ClientRuntimeState) => void>();
   private readonly snapshotHandlers = new Set<(message: SnapshotMessage<Snapshot>) => void>();
   private readonly eventHandlers = new Set<(message: EventMessage<Event>) => void>();
+  private readonly pongHandlers = new Set<(requestId: number) => void>();
   private readonly errorHandlers = new Set<(error: ClientRuntimeError) => void>();
   private readonly closeHandlers = new Set<() => void>();
   private currentState: ClientRuntimeState = "idle";
@@ -122,6 +123,10 @@ export class ClientRuntime<Input, Snapshot, Event> {
     this.eventHandlers.add(handler);
   }
 
+  onPong(handler: (requestId: number) => void): void {
+    this.pongHandlers.add(handler);
+  }
+
   onError(handler: (error: ClientRuntimeError) => void): void {
     this.errorHandlers.add(handler);
   }
@@ -171,6 +176,7 @@ export class ClientRuntime<Input, Snapshot, Event> {
         this.peer.sendRealtime(this.codec.encode({ type: "pong", requestId: message.requestId }));
         return;
       case "pong":
+        for (const handler of this.pongHandlers) handler(message.requestId);
         return;
       case "disconnect":
         this.peer.close();

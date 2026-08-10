@@ -90,6 +90,17 @@ describe("ClientRuntime", () => {
     });
   });
 
+  it("reports realtime PONG responses for RTT measurement", async () => {
+    const { hostPeer, client } = createClient();
+    completeNegotiation(hostPeer, client);
+    const pong = vi.fn();
+    client.onPong(pong);
+    await flushMicrotasks();
+    hostPeer.sendRealtime(codec.encode({ type: "pong", requestId: 17 }));
+    await flushMicrotasks();
+    expect(pong).toHaveBeenCalledWith(17);
+  });
+
   it("fails closed when WELCOME changes compatibility identity", async () => {
     const { hostPeer, client } = createClient();
     const errors = vi.fn();

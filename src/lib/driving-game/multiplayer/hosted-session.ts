@@ -58,6 +58,7 @@ export class HostedDrivingSession {
   private lastClock = performance.now();
   private sessionPaused = false;
   private disposeSimulationWorld: () => void;
+  private configurationStartedAt: number | null = null;
 
   constructor(
     world: DrivingWorldQuery,
@@ -105,8 +106,16 @@ export class HostedDrivingSession {
   }
 
   get playerId() { return this.local.playerId; }
+  get diagnostics() { return this.local.diagnostics; }
   get state() { return this.local.state; }
   get playerCount() { return this.host.playerCount; }
+  get readiness() {
+    return this.host.control((state) => ({
+      waiting: state.awaitingReadiness,
+      unreadyPlayers: [...state.players.keys()].filter((playerId) => !state.readyPlayers.has(playerId)),
+      elapsedMs: this.configurationStartedAt === null ? 0 : performance.now() - this.configurationStartedAt,
+    }));
+  }
   get paused() { return this.sessionPaused; }
   get canResume() {
     return this.host.control((state) => !state.awaitingReadiness || areAuthoritativeDrivingPlayersReady(state));
@@ -115,6 +124,7 @@ export class HostedDrivingSession {
   setPaused(paused: boolean) {
     this.host.control((state) => setAuthoritativeDrivingPaused(state, paused));
     this.sessionPaused = paused;
+    if (!paused) this.configurationStartedAt = null;
     this.lastClock = performance.now();
   }
 
@@ -128,6 +138,7 @@ export class HostedDrivingSession {
     disposePreviousWorld();
     this.host.publishHostEvent(event);
     this.sessionPaused = true;
+    this.configurationStartedAt = performance.now();
     this.lastClock = performance.now();
   }
 

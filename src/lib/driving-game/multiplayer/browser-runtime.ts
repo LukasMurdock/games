@@ -32,6 +32,18 @@ type PlaySession = {
   setPaused?(paused: boolean): void;
   canResume?: boolean;
   onEvent?(handler: (event: AuthoritativeDrivingEvent) => void): void;
+  readiness?: {
+    waiting: boolean;
+    unreadyPlayers: string[];
+    elapsedMs: number;
+  };
+  diagnostics?: {
+    roundTripMs: number | null;
+    snapshotJitterMs: number;
+    bufferedSnapshots: number;
+    underflowRate: number;
+    extrapolationRate: number;
+  } | null;
 };
 
 export function decodeDrivingDirectFragment(fragment: string) {
@@ -66,7 +78,13 @@ export async function startHostedDrivingGame(root: HTMLElement) {
     mapSelect.append(option);
   }
   mapSelect.value = PRODUCTION_DRIVING_COMPOSITION.mapId;
+  let acceptedMapId: keyof typeof GAME_MAPS = PRODUCTION_DRIVING_COMPOSITION.mapId;
   mapSelect.addEventListener("change", () => {
+    if (session.readiness.waiting) {
+      mapSelect.value = acceptedMapId;
+      overlay.status.textContent = "Finish the current map transition before selecting another map.";
+      return;
+    }
     const mapId = mapSelect.value as keyof typeof GAME_MAPS;
     let nextSimulationWorld: ReturnType<typeof createSimulationWorld> | null = null;
     try {
@@ -80,9 +98,11 @@ export async function startHostedDrivingGame(root: HTMLElement) {
         nextSimulationWorld.destroy,
       );
       nextSimulationWorld = null;
+      acceptedMapId = mapId;
       overlay.status.textContent = `Loading ${GAME_MAPS[mapId].title}. Waiting for players…`;
     } catch (error) {
       nextSimulationWorld?.destroy();
+      mapSelect.value = acceptedMapId;
       overlay.status.textContent = error instanceof Error ? error.message : String(error);
     }
   });
@@ -98,7 +118,7 @@ export async function startHostedDrivingGame(root: HTMLElement) {
     }).finally(() => { createButton.disabled = false; });
   });
   session.onSlots((slots) => renderSlots(slotsRoot, slots));
-  overlay.status.textContent = "Host ready. Create an invite while keeping this tab open.";
+  overlay.status.textContent = "Create one private invite per friend. Keep this tab open while each friend returns their response link.";
   startPlayLoop(root, worldHolder, session, overlay);
 }
 
@@ -116,7 +136,8 @@ export async function startJoinedDrivingGame(root: HTMLElement, invite: DirectIn
     copy.textContent = "Copy response";
     bindCopyFeedback(copy, session.responseUrl, "response");
     overlay.body.append(output, copy);
-    overlay.status.textContent = "Send this response link to the host. This game will connect when they open it.";
+    appendShareButton(overlay.body, session.responseUrl, "Game response");
+    overlay.status.textContent = "Share the response with the host, keep this tab open, and wait. You will join automatically when the host opens it.";
     startPlayLoop(root, worldHolder, session, overlay);
   } catch (error) {
     worldHolder.destroy();
@@ -146,6 +167,7 @@ export async function handleDrivingResponseLanding(
     copy.textContent = "Copy response";
     bindCopyFeedback(copy, fallbackUrl, "response");
     overlay.body.append(output, copy);
+    appendShareButton(overlay.body, fallbackUrl, "Game response");
   }
 }
 
@@ -277,13 +299,23 @@ function startPlayLoop(
     lastInput = signature;
     session.sendInput(input);
   };
+  const loadAuthoritativeMap = (mapId: string) => {
+    if (!(mapId in GAME_MAPS)) return false;
+    try {
+      holder.setMap(mapId as keyof typeof GAME_MAPS);
+      return true;
+    } catch (error) {
+      overlay.status.textContent = `Could not load the host map: ${error instanceof Error ? error.message : String(error)}`;
+      session.close();
+      return false;
+    }
+  };
   session.onEvent?.((event) => {
     if (event.type === "collision" && event.playerId === session.playerId) {
       audio?.impact(event.terminal ? 1 : 0.55);
       return;
     }
-    if (event.type !== "configuration" || !(event.mapId in GAME_MAPS)) return;
-    holder.setMap(event.mapId as keyof typeof GAME_MAPS);
+    if (event.type !== "configuration" || !loadAuthoritativeMap(event.mapId)) return;
     fleet.update({ players: [] }, 0);
     lastRenderedSnapshot = null;
     hostPauseSnapshot = null;
@@ -313,9 +345,11 @@ function startPlayLoop(
   const togglePause = () => {
     if (!session.setPaused) return;
     const paused = !session.paused;
+    if (paused && lastRenderedSnapshot) hostPauseSnapshot = lastRenderedSnapshot;
     try {
       session.setPaused(paused);
     } catch (error) {
+      if (paused) hostPauseSnapshot = null;
       overlay.status.textContent = error instanceof Error ? error.message : String(error);
       return;
     }
@@ -406,8 +440,7 @@ function startPlayLoop(
       overlay.playerList.textContent = "";
     } else if (snapshot) {
       if (snapshot.configurationEpoch !== undefined && snapshot.configurationEpoch !== trackedEpoch) {
-        if (snapshot.mapId && snapshot.mapId in GAME_MAPS) {
-          holder.setMap(snapshot.mapId as keyof typeof GAME_MAPS);
+        if (snapshot.mapId && loadAuthoritativeMap(snapshot.mapId)) {
           root.dataset.gameMap = snapshot.mapId;
         }
         if (snapshot.modeId) root.dataset.gameMode = snapshot.modeId;
@@ -442,6 +475,7 @@ function startPlayLoop(
             reversing: forwardSpeed < -0.35,
           });
         }
+        root.dataset.localVehiclePosition = `${local.position[0]},${local.position[1]}`;
         const position = new THREE.Vector3(local.position[0], 0, local.position[1]);
         const forward = new THREE.Vector3(Math.sin(local.heading), 0, Math.cos(local.heading));
         if (!snapshot.paused || !cameraInitialized) {
@@ -475,14 +509,26 @@ function startPlayLoop(
       }
       else if (!canPause && !snapshot.paused) overlay.status.textContent = "Connected to host.";
       if (!holdHostPresentation) lastRenderedSnapshot = snapshot;
+      const diagnostics = session.diagnostics;
+      overlay.diagnostics.textContent = diagnostics
+        ? `RTT ${diagnostics.roundTripMs === null ? "…" : `${Math.round(diagnostics.roundTripMs)} ms`} · jitter ${Math.round(diagnostics.snapshotJitterMs)} ms · buffer ${diagnostics.bufferedSnapshots} · underflow ${Math.round(diagnostics.underflowRate * 100)}% · extrapolation ${Math.round(diagnostics.extrapolationRate * 100)}%`
+        : "Measuring network…";
       if (pauseButton && session.paused) {
         pauseButton.disabled = session.canResume === false;
-        if (session.canResume === false) overlay.status.textContent = "Waiting for every player to load the selected map…";
+        if (session.canResume === false) {
+          const readiness = session.readiness;
+          const waitingCount = readiness?.unreadyPlayers.length ?? 0;
+          const elapsedSeconds = Math.floor((readiness?.elapsedMs ?? 0) / 1_000);
+          overlay.status.textContent = elapsedSeconds >= 15
+            ? `Still waiting for ${waitingCount} player${waitingCount === 1 ? "" : "s"} after ${elapsedSeconds}s. They may need to leave and reopen the invite.`
+            : `Waiting for ${waitingCount} player${waitingCount === 1 ? "" : "s"} to load the selected map…`;
+        }
       } else if (pauseButton) pauseButton.disabled = false;
     }
     const activeCamera = cameraMode === "Chase"
       ? chaseCamera
       : cameraMode === "Isometric" ? isometricCamera : sideCamera;
+    root.dataset.localCameraPosition = `${activeCamera.position.x},${activeCamera.position.y},${activeCamera.position.z}`;
     holder.renderer.render(holder.scene, activeCamera);
     frameId = requestAnimationFrame(frame);
   }
@@ -517,16 +563,17 @@ function setupOverlay(root: HTMLElement, title: string) {
   const overlay = root.querySelector<HTMLElement>("#multiplayer-overlay");
   if (!overlay) throw new Error("Multiplayer overlay is unavailable.");
   overlay.hidden = false;
-  overlay.innerHTML = `<div class="multiplayer-card"><p class="eyebrow">Drive together</p><h1></h1><p class="multiplayer-status"></p><p class="multiplayer-player-count"></p><p class="multiplayer-player-list"></p><div class="multiplayer-body"></div><button class="multiplayer-audio" type="button">Enable audio</button><button class="multiplayer-leave" type="button" hidden>Leave session</button></div>`;
+  overlay.innerHTML = `<div class="multiplayer-card"><p class="eyebrow">Drive together</p><h1></h1><p class="multiplayer-status"></p><p class="multiplayer-player-count"></p><p class="multiplayer-player-list"></p><p class="multiplayer-diagnostics">Measuring network…</p><div class="multiplayer-body"></div><button class="multiplayer-audio" type="button">Enable audio</button><button class="multiplayer-leave" type="button" hidden>Leave session</button></div>`;
   const heading = overlay.querySelector("h1") as HTMLElement;
   const status = overlay.querySelector(".multiplayer-status") as HTMLElement;
   const playerCount = overlay.querySelector(".multiplayer-player-count") as HTMLElement;
   const playerList = overlay.querySelector(".multiplayer-player-list") as HTMLElement;
+  const diagnostics = overlay.querySelector(".multiplayer-diagnostics") as HTMLElement;
   const body = overlay.querySelector(".multiplayer-body") as HTMLElement;
   const audio = overlay.querySelector(".multiplayer-audio") as HTMLButtonElement;
   const leave = overlay.querySelector(".multiplayer-leave") as HTMLButtonElement;
   heading.textContent = title;
-  return { overlay, status, playerCount, playerList, body, audio, leave };
+  return { overlay, status, playerCount, playerList, diagnostics, body, audio, leave };
 }
 
 function bindCopyFeedback(button: HTMLButtonElement, value: string, label: string) {
@@ -553,6 +600,21 @@ function bindCopyFeedback(button: HTMLButtonElement, value: string, label: strin
   });
 }
 
+function appendShareButton(root: HTMLElement, url: string, title: string) {
+  if (typeof navigator.share !== "function") return;
+  const share = document.createElement("button");
+  share.type = "button";
+  share.textContent = "Share…";
+  share.addEventListener("click", () => {
+    void navigator.share({ title, url }).catch((error: unknown) => {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      share.textContent = "Share failed";
+      window.setTimeout(() => { share.textContent = "Share…"; }, 1_800);
+    });
+  });
+  root.append(share);
+}
+
 function renderSlots(root: HTMLElement, slots: readonly HostedDrivingSlot[]) {
   root.replaceChildren(...slots.map((slot) => {
     const row = document.createElement("div");
@@ -571,7 +633,9 @@ function renderSlots(root: HTMLElement, slots: readonly HostedDrivingSlot[]) {
     close.type = "button";
     close.textContent = "Close";
     close.addEventListener("click", slot.close);
-    row.append(label, status, copy, close);
+    row.append(label, status, copy);
+    appendShareButton(row, slot.inviteUrl, "Drive with friends");
+    row.append(close);
     return row;
   }));
 }

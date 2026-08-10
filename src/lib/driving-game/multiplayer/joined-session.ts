@@ -58,6 +58,7 @@ export class JoinedDrivingSession {
   }
 
   get playerId() { return this.network?.playerId ?? null; }
+  get diagnostics() { return this.network?.diagnostics ?? null; }
   get state() { return this.transportClosed ? "closed" : this.network?.state ?? "negotiating"; }
 
   update(now: number) {

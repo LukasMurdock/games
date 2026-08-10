@@ -490,6 +490,11 @@
   .multiplayer-status { color: rgba(255, 255, 255, 0.72); line-height: 1.45; }
   .multiplayer-player-count { color: #b9d99d; font-size: 12px; font-weight: 800; text-transform: uppercase; }
   .multiplayer-player-list { color: rgba(255, 255, 255, 0.58); font-size: 11px; }
+  .multiplayer-diagnostics {
+    color: rgba(255, 255, 255, 0.46);
+    font: 10px ui-monospace, SFMono-Regular, Menlo, monospace;
+    line-height: 1.45;
+  }
   .multiplayer-leave { margin-top: 14px; }
   .multiplayer-body output {
     display: block;

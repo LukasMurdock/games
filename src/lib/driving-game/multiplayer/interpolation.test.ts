@@ -93,6 +93,17 @@ describe("driving snapshot interpolation", () => {
       .toEqual(["two"]);
   });
 
+  it("reports interpolation underflow and extrapolation diagnostics", () => {
+    let now = 1_000;
+    const buffer = new DrivingSnapshotBuffer({ now: () => now, interpolationDelaySeconds: 0.1 });
+    buffer.push(60, { players: [player("one", [0, 0])] });
+    buffer.sample();
+    now = 1_300;
+    buffer.sample();
+    expect(buffer.diagnostics.underflowRate).toBeGreaterThan(0);
+    expect(buffer.diagnostics.extrapolationRate).toBeGreaterThan(0);
+  });
+
   it("replaces duplicate ticks and bounds retained history", () => {
     const buffer = new DrivingSnapshotBuffer({
       interpolationDelaySeconds: 0,

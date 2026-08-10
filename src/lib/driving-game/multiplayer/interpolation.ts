@@ -25,6 +25,9 @@ export class DrivingSnapshotBuffer {
   private readonly now: () => number;
   private readonly snapshots: BufferedSnapshot[] = [];
   private clockOrigin: number | null = null;
+  private interpolationSamples = 0;
+  private underflowSamples = 0;
+  private extrapolationSamples = 0;
 
   constructor(options: DrivingInterpolationOptions = {}) {
     this.tickRate = options.tickRate ?? 60;
@@ -39,6 +42,15 @@ export class DrivingSnapshotBuffer {
 
   get size() {
     return this.snapshots.length;
+  }
+
+  get diagnostics() {
+    const total = this.interpolationSamples + this.underflowSamples + this.extrapolationSamples;
+    return {
+      bufferedSnapshots: this.snapshots.length,
+      underflowRate: total === 0 ? 0 : this.underflowSamples / total,
+      extrapolationRate: total === 0 ? 0 : this.extrapolationSamples / total,
+    };
   }
 
   clear() {
@@ -69,7 +81,10 @@ export class DrivingSnapshotBuffer {
     const targetTick = (now - (this.clockOrigin ?? latest.receivedAt)) / 1000 * this.tickRate
       - this.delayTicks;
     const first = this.snapshots[0];
-    if (targetTick <= first.tick) return cloneSnapshot(first.snapshot);
+    if (targetTick <= first.tick) {
+      this.underflowSamples++;
+      return cloneSnapshot(first.snapshot);
+    }
 
     for (let index = 1; index < this.snapshots.length; index++) {
       const right = this.snapshots[index];
@@ -77,9 +92,11 @@ export class DrivingSnapshotBuffer {
       const left = this.snapshots[index - 1];
       const span = right.tick - left.tick;
       const alpha = span > 0 ? (targetTick - left.tick) / span : 1;
+      this.interpolationSamples++;
       return interpolateSnapshot(left.snapshot, right.snapshot, alpha);
     }
 
+    this.extrapolationSamples++;
     const extrapolationTicks = Math.min(
       Math.max(0, targetTick - latest.tick),
       this.maximumExtrapolationTicks,

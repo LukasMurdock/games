@@ -29,6 +29,12 @@ export class NetworkDrivingSession {
   private readonly stateHandlers = new Set<(state: ClientRuntimeState) => void>();
   private readonly errorHandlers = new Set<(error: ClientRuntimeError) => void>();
   private lastPaused: boolean | undefined;
+  private lastSnapshotArrival: number | undefined;
+  private snapshotJitterMs = 0;
+  private roundTripMs: number | null = null;
+  private nextPingId = 1;
+  private lastPingAt = -Infinity;
+  private readonly pendingPings = new Map<number, number>();
 
   constructor(options: NetworkDrivingSessionOptions) {
     this.snapshots = new DrivingSnapshotBuffer(options.interpolation);
@@ -39,12 +45,27 @@ export class NetworkDrivingSession {
       rulesetId: CONFIGURABLE_DRIVING_RULESET_ID,
     });
     this.runtime.onSnapshot((message) => {
+      const arrivedAt = performance.now();
+      if (this.lastSnapshotArrival !== undefined) {
+        const deviation = Math.abs(arrivedAt - this.lastSnapshotArrival - 50);
+        this.snapshotJitterMs += (deviation - this.snapshotJitterMs) * 0.15;
+      }
+      this.lastSnapshotArrival = arrivedAt;
       const paused = message.snapshot.paused;
       if (this.lastPaused !== undefined && paused !== undefined && paused !== this.lastPaused) {
         this.snapshots.clear();
       }
       if (paused !== undefined) this.lastPaused = paused;
       this.snapshots.push(message.tick, message.snapshot);
+    });
+    this.runtime.onPong((requestId) => {
+      const sentAt = this.pendingPings.get(requestId);
+      if (sentAt === undefined) return;
+      this.pendingPings.delete(requestId);
+      const measured = performance.now() - sentAt;
+      this.roundTripMs = this.roundTripMs === null
+        ? measured
+        : this.roundTripMs + (measured - this.roundTripMs) * 0.2;
     });
     this.runtime.onEvent((message) => {
       if (message.event.type === "configuration") this.snapshots.clear();
@@ -78,8 +99,25 @@ export class NetworkDrivingSession {
     return this.runtime.sendInput(input);
   }
 
-  sample(now?: number) {
+  sample(now = performance.now()) {
+    if (this.runtime.state === "connected" && now - this.lastPingAt >= 1_000) {
+      const requestId = this.nextPingId++;
+      this.lastPingAt = now;
+      this.pendingPings.set(requestId, performance.now());
+      this.runtime.ping(requestId);
+      for (const [id, sentAt] of this.pendingPings) {
+        if (performance.now() - sentAt > 10_000) this.pendingPings.delete(id);
+      }
+    }
     return this.snapshots.sample(now);
+  }
+
+  get diagnostics() {
+    return {
+      roundTripMs: this.roundTripMs,
+      snapshotJitterMs: this.snapshotJitterMs,
+      ...this.snapshots.diagnostics,
+    };
   }
 
   close() {
