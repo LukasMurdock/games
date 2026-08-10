@@ -75,7 +75,11 @@ export class HostedDrivingSession {
       rulesetId: CONFIGURABLE_DRIVING_RULESET_ID,
       tickRate: PRODUCTION_DRIVING_COMPOSITION.tickRate,
       snapshotRate: PRODUCTION_DRIVING_COMPOSITION.snapshotRate,
-      createPlayerId: (peerId) => peerId === "local-player" ? "host" : `guest-${nextGuest++}`,
+      createPlayerId: (peerId) => {
+        if (peerId === "local-player") return "host";
+        const directSlot = /^direct-client-(\d+)$/.exec(peerId)?.[1];
+        return directSlot ? `guest-${directSlot}` : `guest-${nextGuest++}`;
+      },
     });
     const [hostPeer, clientPeer] = createMemoryPeerPair("local-player", "host-runtime");
     this.host.attach(hostPeer);
@@ -109,6 +113,12 @@ export class HostedDrivingSession {
   get diagnostics() { return this.local.diagnostics; }
   get state() { return this.local.state; }
   get playerCount() { return this.host.playerCount; }
+  getPlayerName(playerId: string) {
+    if (playerId === "host") return "Host";
+    const slotId = Number(/^guest-(\d+)$/.exec(playerId)?.[1]);
+    const slot = Number.isSafeInteger(slotId) ? this.slots.get(slotId) : undefined;
+    return slot?.name || (Number.isSafeInteger(slotId) ? `Guest ${slotId}` : playerId);
+  }
   get readiness() {
     return this.host.control((state) => ({
       waiting: state.awaitingReadiness,

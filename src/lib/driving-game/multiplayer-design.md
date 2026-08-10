@@ -135,7 +135,7 @@ https://game.example/#response=<base64url-cbor>
 
 Fragments are not sent to the static server. Invite and response payloads are versioned, self-contained, session- and slot-bound, size-bounded, and one-use. Complete non-trickle SDP includes gathered ICE candidates. A fresh random invite secret proves that the response belongs to that invite; it is a bearer capability, not personal identity.
 
-Optional friend names remain local host UI metadata. Invite and response controls support both explicit clipboard feedback and the platform-native Share sheet when available. Clicking a response link should hand it to the existing same-origin host tab via `BroadcastChannel`, receive acknowledgement, and close the landing tab when the browser permits.
+Optional friend names remain local host metadata and appear above cars only in the host's presentation. Guests receive no friend-name metadata; their presentation labels cars as Host, You, or Guest N. Invite and response controls support both explicit clipboard feedback and the platform-native Share sheet when available. Clicking a response link should hand it to the existing same-origin host tab via `BroadcastChannel`, receive acknowledgement, and close the landing tab when the browser permits.
 
 ## ICE
 

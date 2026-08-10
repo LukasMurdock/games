@@ -59,6 +59,12 @@ export class JoinedDrivingSession {
 
   get playerId() { return this.network?.playerId ?? null; }
   get diagnostics() { return this.network?.diagnostics ?? null; }
+  getPlayerName(playerId: string) {
+    if (playerId === this.playerId) return "You";
+    if (playerId === "host") return "Host";
+    const guest = /^guest-(\d+)$/.exec(playerId)?.[1];
+    return guest ? `Guest ${guest}` : playerId;
+  }
   get state() { return this.transportClosed ? "closed" : this.network?.state ?? "negotiating"; }
 
   update(now: number) {

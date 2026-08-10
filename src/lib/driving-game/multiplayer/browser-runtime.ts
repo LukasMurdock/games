@@ -32,6 +32,7 @@ type PlaySession = {
   setPaused?(paused: boolean): void;
   canResume?: boolean;
   onEvent?(handler: (event: AuthoritativeDrivingEvent) => void): void;
+  getPlayerName?(playerId: string): string;
   readiness?: {
     waiting: boolean;
     unreadyPlayers: string[];
@@ -293,7 +294,9 @@ function startPlayLoop(
   diagnosticsHud.setAttribute("aria-label", "Network diagnostics");
   diagnosticsHud.textContent = "Measuring network…";
   root.append(diagnosticsHud);
-  const fleet = createAuthoritativeVehicleFleet(holder.scene);
+  const fleet = createAuthoritativeVehicleFleet(holder.scene, {
+    getPlayerLabel: (playerId) => session.getPlayerName?.(playerId) ?? playerId,
+  });
   const chaseCamera = new THREE.PerspectiveCamera(60, 1, 0.1, 2_000);
   const isometricCamera = new THREE.OrthographicCamera(-20, 20, 20, -20, 0.1, 2_000);
   const sideCamera = new THREE.OrthographicCamera(-17, 17, 12, -12, 0.1, 2_000);
@@ -587,7 +590,11 @@ function startPlayLoop(
         }
       }
       overlay.playerCount.textContent = `${snapshot.players.length} player${snapshot.players.length === 1 ? "" : "s"} connected`;
-      overlay.playerList.textContent = snapshot.players.map((player) => player.playerId).join(" · ");
+      const playerLabels = snapshot.players.map(
+        (player) => session.getPlayerName?.(player.playerId) ?? player.playerId,
+      );
+      overlay.playerList.textContent = playerLabels.join(" · ");
+      root.dataset.playerLabels = playerLabels.join("|");
       if (!canPause && snapshot.paused) {
         const mapTitle = snapshot.mapId && snapshot.mapId in GAME_MAPS
           ? GAME_MAPS[snapshot.mapId as keyof typeof GAME_MAPS].title

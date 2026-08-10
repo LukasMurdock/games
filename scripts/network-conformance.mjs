@@ -161,6 +161,12 @@ async function testPublicDrivingMultiplayer(browserInstance) {
     { timeout: 20_000 },
   )));
   if (!landing.isClosed()) await landing.close();
+  await host.waitForFunction(
+    () => document.querySelector("#driving-game")?.getAttribute("data-player-labels") === "Jamie|Host",
+  );
+  await client.waitForFunction(
+    () => document.querySelector("#driving-game")?.getAttribute("data-player-labels") === "You|Host",
+  );
   await host.keyboard.press("KeyC");
   await host.waitForFunction(
     () => document.querySelector("#camera-button")?.title.includes("Isometric"),
