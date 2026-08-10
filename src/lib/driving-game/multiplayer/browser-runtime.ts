@@ -54,7 +54,7 @@ export function decodeDrivingDirectFragment(fragment: string) {
 export async function startHostedDrivingGame(root: HTMLElement) {
   const worldHolder = createWorld(root);
   const simulationWorld = createSimulationWorld(PRODUCTION_DRIVING_COMPOSITION.mapId);
-  const inviteBase = new URL("/?multiplayer=join", window.location.origin).toString();
+  const inviteBase = new URL("/drive/?multiplayer=join", window.location.origin).toString();
   const session = new HostedDrivingSession(
     createDrivingWorldQuery(simulationWorld.world),
     inviteBase,
@@ -138,7 +138,7 @@ export async function startHostedDrivingGame(root: HTMLElement) {
 
 export async function startJoinedDrivingGame(root: HTMLElement, invite: DirectInvite) {
   const worldHolder = createWorld(root);
-  const responseBase = new URL("/?multiplayer=response", window.location.origin).toString();
+  const responseBase = new URL("/drive/?multiplayer=response", window.location.origin).toString();
   const overlay = setupOverlay(root, "Join multiplayer");
   overlay.status.textContent = "Gathering a private WebRTC response…";
   try {
@@ -199,7 +199,7 @@ function createLinkDetails(url: string, label: string) {
 }
 
 function createResponseFallbackUrl(fragment: string) {
-  const url = new URL("/?multiplayer=response", window.location.origin);
+  const url = new URL("/drive/?multiplayer=response", window.location.origin);
   url.hash = fragment.startsWith("#") ? fragment.slice(1) : fragment;
   return url.toString();
 }
@@ -663,7 +663,7 @@ function startPlayLoop(
   overlay.leave.hidden = false;
   overlay.leave.addEventListener("click", () => {
     destroy();
-    window.location.href = "/";
+    window.location.href = "/drive/";
   }, { once: true });
   window.addEventListener("beforeunload", destroy, { once: true });
   document.addEventListener("astro:before-swap", destroy, { once: true });

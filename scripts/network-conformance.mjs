@@ -128,7 +128,7 @@ async function testPublicDrivingMultiplayer(browserInstance) {
   });
   const host = await hostContext.newPage();
   const client = await clientContext.newPage();
-  await host.goto(`http://127.0.0.1:${port}/?multiplayer=host`);
+  await host.goto(`http://127.0.0.1:${port}/drive/?multiplayer=host`);
   await host.waitForSelector(".multiplayer-host-controls");
   const friendName = host.locator(".multiplayer-host-controls input");
   await friendName.focus();
@@ -298,7 +298,7 @@ async function testMobileMultiplayerLayout(browserInstance) {
     hasTouch: true,
   });
   const page = await context.newPage();
-  await page.goto(`http://127.0.0.1:${port}/?multiplayer=host`);
+  await page.goto(`http://127.0.0.1:${port}/drive/?multiplayer=host`);
   await page.waitForSelector("#pause-overlay.is-visible .multiplayer-card", {
     state: "visible",
     timeout: 20_000,
@@ -358,7 +358,9 @@ async function testSinglePlayerDriving(browserInstance) {
   const page = await context.newPage();
   const pageErrors = [];
   page.on("pageerror", (error) => pageErrors.push(error));
-  await page.goto(`http://127.0.0.1:${port}/`);
+  await page.goto(`http://127.0.0.1:${port}/?mode=chase`);
+  await page.waitForURL(`http://127.0.0.1:${port}/drive/?mode=chase`);
+  await page.goto(`http://127.0.0.1:${port}/drive/`);
   await page.click("#start-driving");
   const before = await page.locator("#game-canvas").screenshot();
   await page.keyboard.down("ArrowLeft");

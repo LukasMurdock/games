@@ -15,7 +15,8 @@ export default defineConfig({
       build: {
         rollupOptions: {
           input: {
-            drive: resolve(import.meta.dirname, "index.html"),
+            home: resolve(import.meta.dirname, "index.html"),
+            drive: resolve(import.meta.dirname, "drive/index.html"),
             dyno: resolve(import.meta.dirname, "dyno/index.html"),
             networkTest: resolve(import.meta.dirname, "network-test/index.html"),
           },
