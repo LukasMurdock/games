@@ -118,6 +118,7 @@ export async function startHostedDrivingGame(root: HTMLElement) {
     }).finally(() => { createButton.disabled = false; });
   });
   session.onSlots((slots) => renderSlots(slotsRoot, slots));
+  session.setPaused(true);
   overlay.status.textContent = "Create one private invite per friend. Keep this tab open while each friend returns their response link.";
   startPlayLoop(root, worldHolder, session, overlay);
 }
@@ -243,9 +244,19 @@ function startPlayLoop(
   root.querySelectorAll<HTMLElement>("#leaderboard-button, #reset-button")
     .forEach((element) => { element.hidden = true; });
   const pauseButton = root.querySelector<HTMLButtonElement>("#pause-button");
+  const pauseOverlay = root.querySelector<HTMLElement>("#pause-overlay");
+  const pauseHeading = pauseOverlay?.querySelector<HTMLElement>("h2");
+  const resumeButton = root.querySelector<HTMLButtonElement>("#resume-driving");
   const cameraButton = root.querySelector<HTMLButtonElement>("#camera-button");
   const canPause = typeof session.setPaused === "function";
-  if (pauseButton) pauseButton.hidden = !canPause;
+  if (pauseButton) pauseButton.hidden = false;
+  pauseOverlay?.classList.add("is-multiplayer");
+  pauseOverlay?.append(overlay.overlay);
+  const diagnosticsHud = document.createElement("output");
+  diagnosticsHud.className = "multiplayer-network-hud";
+  diagnosticsHud.setAttribute("aria-label", "Network diagnostics");
+  diagnosticsHud.textContent = "Measuring network…";
+  root.append(diagnosticsHud);
   const fleet = createAuthoritativeVehicleFleet(holder.scene);
   const chaseCamera = new THREE.PerspectiveCamera(60, 1, 0.1, 2_000);
   const isometricCamera = new THREE.OrthographicCamera(-20, 20, 20, -20, 0.1, 2_000);
@@ -280,6 +291,7 @@ function startPlayLoop(
   let audioPaused: boolean | undefined;
   let lastRenderedSnapshot: AuthoritativeDrivingSnapshot | null = null;
   let hostPauseSnapshot: AuthoritativeDrivingSnapshot | null = null;
+  let localMenuOpen = false;
   const ensureAudio = () => {
     audio ??= createCarAudio(DRIVING_PROFILES.loose);
     if (audio) overlay.audio.hidden = true;
@@ -342,6 +354,23 @@ function startPlayLoop(
     if (cameraButton) cameraButton.title = `Camera: ${cameraMode} (C)`;
   };
   cameraButton?.addEventListener("click", switchCamera);
+  const renderPauseControl = (paused: boolean) => {
+    if (!pauseButton) return;
+    pauseButton.setAttribute("aria-pressed", String(paused));
+    const label = pauseButton.querySelector(".action-label");
+    const mobileLabel = pauseButton.querySelector(".action-mobile");
+    if (label) label.textContent = paused ? "Resume" : "Pause";
+    if (mobileLabel) mobileLabel.textContent = paused ? "▶" : "Ⅱ";
+    pauseButton.title = paused ? "Resume game (P)" : "Pause game (P)";
+  };
+  renderPauseControl(session.paused === true);
+  if (!canPause && pauseButton) {
+    const label = pauseButton.querySelector(".action-label");
+    const mobileLabel = pauseButton.querySelector(".action-mobile");
+    if (label) label.textContent = "Menu";
+    if (mobileLabel) mobileLabel.textContent = "☰";
+    pauseButton.title = "Session menu (Escape)";
+  }
   const togglePause = () => {
     if (!session.setPaused) return;
     const paused = !session.paused;
@@ -353,19 +382,24 @@ function startPlayLoop(
       overlay.status.textContent = error instanceof Error ? error.message : String(error);
       return;
     }
-    if (pauseButton) {
-      pauseButton.setAttribute("aria-pressed", String(paused));
-      const label = pauseButton.querySelector(".action-label");
-      const mobileLabel = pauseButton.querySelector(".action-mobile");
-      if (label) label.textContent = paused ? "Resume" : "Pause";
-      if (mobileLabel) mobileLabel.textContent = paused ? "▶" : "Ⅱ";
-      pauseButton.title = paused ? "Resume game (P)" : "Pause game (P)";
-    }
+    renderPauseControl(paused);
     overlay.status.textContent = paused
       ? "Game paused by host."
       : "Game resumed. Create invites while keeping this tab open.";
   };
-  pauseButton?.addEventListener("click", togglePause);
+  const toggleLocalMenu = () => {
+    localMenuOpen = !localMenuOpen;
+    if (localMenuOpen) {
+      controls.left = false;
+      controls.right = false;
+      controls.handbrake = false;
+      sendControls(true);
+    }
+  };
+  const pauseAction = canPause ? togglePause : toggleLocalMenu;
+  const resumeAction = canPause ? togglePause : () => { localMenuOpen = false; };
+  pauseButton?.addEventListener("click", pauseAction);
+  resumeButton?.addEventListener("click", resumeAction);
   const onKeyDown = (event: KeyboardEvent) => {
     ensureAudio();
     if (!event.repeat && event.code === "KeyC") {
@@ -373,9 +407,10 @@ function startPlayLoop(
       switchCamera();
       return;
     }
-    if (!event.repeat && (event.code === "KeyP" || event.code === "Escape") && canPause) {
+    if (!event.repeat && (event.code === "KeyP" || event.code === "Escape")) {
       event.preventDefault();
-      togglePause();
+      if (canPause) togglePause();
+      else toggleLocalMenu();
       return;
     }
     const control = keyControl(event.code);
@@ -431,7 +466,16 @@ function startPlayLoop(
       && (session.paused === true || sampledSnapshot?.paused === true);
     let snapshot = sampledSnapshot;
     if (hostPauseSnapshot && holdHostPresentation) {
-      snapshot = { ...hostPauseSnapshot, paused: true };
+      if (sampledSnapshot) {
+        const frozenPlayers = new Map(
+          hostPauseSnapshot.players.map((player) => [player.playerId, player]),
+        );
+        snapshot = {
+          ...sampledSnapshot,
+          paused: true,
+          players: sampledSnapshot.players.map((player) => frozenPlayers.get(player.playerId) ?? player),
+        };
+      } else snapshot = { ...hostPauseSnapshot, paused: true };
     }
     if (session.state === "closed") {
       fleet.update({ players: [] }, dt);
@@ -510,7 +554,7 @@ function startPlayLoop(
       else if (!canPause && !snapshot.paused) overlay.status.textContent = "Connected to host.";
       if (!holdHostPresentation) lastRenderedSnapshot = snapshot;
       const diagnostics = session.diagnostics;
-      overlay.diagnostics.textContent = diagnostics
+      diagnosticsHud.textContent = diagnostics
         ? `RTT ${diagnostics.roundTripMs === null ? "…" : `${Math.round(diagnostics.roundTripMs)} ms`} · jitter ${Math.round(diagnostics.snapshotJitterMs)} ms · buffer ${diagnostics.bufferedSnapshots} · underflow ${Math.round(diagnostics.underflowRate * 100)}% · extrapolation ${Math.round(diagnostics.extrapolationRate * 100)}%`
         : "Measuring network…";
       if (pauseButton && session.paused) {
@@ -525,6 +569,17 @@ function startPlayLoop(
         }
       } else if (pauseButton) pauseButton.disabled = false;
     }
+    const hasLocalPlayer = snapshot?.players.some((player) => player.playerId === session.playerId) === true;
+    const waitingForConnection = session.state !== "connected" || !hasLocalPlayer;
+    const globallyPaused = session.paused === true || snapshot?.paused === true;
+    const showPausePanel = waitingForConnection || globallyPaused || localMenuOpen;
+    pauseOverlay?.classList.toggle("is-visible", showPausePanel);
+    pauseOverlay?.setAttribute("aria-hidden", String(!showPausePanel));
+    if (pauseHeading) pauseHeading.textContent = waitingForConnection
+      ? "Connecting…"
+      : globallyPaused ? "Session paused." : "Session menu.";
+    if (resumeButton) resumeButton.hidden = waitingForConnection
+      || (canPause ? session.canResume === false : globallyPaused);
     const activeCamera = cameraMode === "Chase"
       ? chaseCamera
       : cameraMode === "Isometric" ? isometricCamera : sideCamera;
@@ -539,13 +594,16 @@ function startPlayLoop(
     destroyed = true;
     cancelAnimationFrame(frameId);
     clearInterval(inputHeartbeat);
-    pauseButton?.removeEventListener("click", togglePause);
+    pauseButton?.removeEventListener("click", pauseAction);
+    resumeButton?.removeEventListener("click", resumeAction);
     cameraButton?.removeEventListener("click", switchCamera);
     window.removeEventListener("keydown", onKeyDown);
     window.removeEventListener("keyup", onKeyUp);
     touchCleanups.forEach((cleanup) => cleanup());
     root.removeEventListener("pointerdown", ensureAudio);
     audio?.destroy();
+    diagnosticsHud.remove();
+    pauseOverlay?.classList.remove("is-visible", "is-multiplayer");
     fleet.destroy();
     session.close();
     holder.destroy();
@@ -563,17 +621,16 @@ function setupOverlay(root: HTMLElement, title: string) {
   const overlay = root.querySelector<HTMLElement>("#multiplayer-overlay");
   if (!overlay) throw new Error("Multiplayer overlay is unavailable.");
   overlay.hidden = false;
-  overlay.innerHTML = `<div class="multiplayer-card"><p class="eyebrow">Drive together</p><h1></h1><p class="multiplayer-status"></p><p class="multiplayer-player-count"></p><p class="multiplayer-player-list"></p><p class="multiplayer-diagnostics">Measuring network…</p><div class="multiplayer-body"></div><button class="multiplayer-audio" type="button">Enable audio</button><button class="multiplayer-leave" type="button" hidden>Leave session</button></div>`;
+  overlay.innerHTML = `<div class="multiplayer-card"><p class="eyebrow">Drive together</p><h1></h1><p class="multiplayer-status"></p><p class="multiplayer-player-count"></p><p class="multiplayer-player-list"></p><div class="multiplayer-body"></div><button class="multiplayer-audio" type="button">Enable audio</button><button class="multiplayer-leave" type="button" hidden>Leave session</button></div>`;
   const heading = overlay.querySelector("h1") as HTMLElement;
   const status = overlay.querySelector(".multiplayer-status") as HTMLElement;
   const playerCount = overlay.querySelector(".multiplayer-player-count") as HTMLElement;
   const playerList = overlay.querySelector(".multiplayer-player-list") as HTMLElement;
-  const diagnostics = overlay.querySelector(".multiplayer-diagnostics") as HTMLElement;
   const body = overlay.querySelector(".multiplayer-body") as HTMLElement;
   const audio = overlay.querySelector(".multiplayer-audio") as HTMLButtonElement;
   const leave = overlay.querySelector(".multiplayer-leave") as HTMLButtonElement;
   heading.textContent = title;
-  return { overlay, status, playerCount, playerList, diagnostics, body, audio, leave };
+  return { overlay, status, playerCount, playerList, body, audio, leave };
 }
 
 function bindCopyFeedback(button: HTMLButtonElement, value: string, label: string) {

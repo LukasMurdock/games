@@ -466,6 +466,21 @@
 
   .multiplayer-link:hover { border-color: #e7f5d9; background: rgba(231, 245, 217, 0.08); }
 
+  .multiplayer-network-hud {
+    position: absolute;
+    z-index: 20;
+    left: max(14px, env(safe-area-inset-left));
+    bottom: max(12px, env(safe-area-inset-bottom));
+    max-width: calc(100% - 28px);
+    padding: 7px 10px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 9px;
+    background: rgba(12, 18, 14, 0.66);
+    color: rgba(255, 255, 255, 0.62);
+    font: 10px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+    pointer-events: none;
+  }
+
   .multiplayer-overlay {
     position: absolute;
     z-index: 18;
@@ -490,11 +505,6 @@
   .multiplayer-status { color: rgba(255, 255, 255, 0.72); line-height: 1.45; }
   .multiplayer-player-count { color: #b9d99d; font-size: 12px; font-weight: 800; text-transform: uppercase; }
   .multiplayer-player-list { color: rgba(255, 255, 255, 0.58); font-size: 11px; }
-  .multiplayer-diagnostics {
-    color: rgba(255, 255, 255, 0.46);
-    font: 10px ui-monospace, SFMono-Regular, Menlo, monospace;
-    line-height: 1.45;
-  }
   .multiplayer-leave { margin-top: 14px; }
   .multiplayer-body output {
     display: block;
@@ -593,6 +603,33 @@
     opacity: 1;
     pointer-events: auto;
   }
+
+  .pause-overlay.is-multiplayer {
+    grid-template-columns: minmax(220px, 320px) minmax(320px, 500px);
+    gap: 18px;
+    align-content: center;
+  }
+
+  .pause-overlay.is-multiplayer .pause-card {
+    width: 100%;
+    padding: 30px;
+  }
+
+  .pause-overlay.is-multiplayer .pause-drive-time,
+  .pause-overlay.is-multiplayer .pause-mode-select,
+  .pause-overlay.is-multiplayer #fullscreen-button { display: none; }
+
+  .pause-overlay.is-multiplayer .pause-card h2 { margin-bottom: 20px; }
+
+  .pause-overlay.is-multiplayer .multiplayer-overlay {
+    position: static;
+    width: 100%;
+    max-height: min(76vh, 720px);
+    overflow: auto;
+    pointer-events: auto;
+  }
+
+  .pause-overlay.is-multiplayer .multiplayer-card { width: 100%; }
 
   .pause-card {
     width: min(390px, 100%);
@@ -702,6 +739,20 @@
   #driving-game[data-touch-capable="true"] .touch-controls { display: flex; }
 
   @media (max-width: 720px), (any-pointer: coarse) {
+    .pause-overlay.is-multiplayer {
+      grid-template-columns: minmax(0, 1fr);
+      align-content: start;
+    }
+
+    .pause-overlay.is-multiplayer .pause-card,
+    .pause-overlay.is-multiplayer .multiplayer-overlay { width: min(500px, 100%); }
+
+    .multiplayer-network-hud {
+      right: max(12px, env(safe-area-inset-right));
+      max-width: none;
+      font-size: 9px;
+    }
+
     .topbar {
       grid-template-columns: 1fr auto;
       padding:

@@ -163,6 +163,23 @@ async function testPublicDrivingMultiplayer(browserInstance) {
   await host.waitForFunction(
     () => document.querySelector("#camera-button")?.title.includes("Chase"),
   );
+  await host.waitForFunction(
+    () => document.querySelector("#pause-overlay")?.contains(document.querySelector("#multiplayer-overlay")),
+  );
+  if (await host.getAttribute("#pause-button", "aria-pressed") === "true") {
+    await host.click("#resume-driving");
+    await host.waitForFunction(
+      () => document.querySelector(".multiplayer-status")?.textContent?.includes("resumed"),
+    );
+  }
+  await host.waitForFunction(() => {
+    const pause = document.querySelector("#pause-overlay");
+    const diagnostics = document.querySelector(".multiplayer-network-hud")?.getBoundingClientRect();
+    return pause?.getAttribute("aria-hidden") === "true"
+      && diagnostics !== undefined
+      && diagnostics.left < 100
+      && innerHeight - diagnostics.bottom < 100;
+  });
   await host.click("#pause-button");
   await host.waitForFunction(
     () => document.querySelector(".multiplayer-status")?.textContent?.includes("paused by host"),
@@ -177,10 +194,11 @@ async function testPublicDrivingMultiplayer(browserInstance) {
   if (pausedVehicleBefore !== pausedVehicleAfter || pausedCameraBefore !== pausedCameraAfter) {
     throw new Error("Paused multiplayer vehicle or camera presentation continued moving.");
   }
-  await host.click("#pause-button");
+  await host.click("#resume-driving");
   await host.waitForFunction(
     () => document.querySelector(".multiplayer-status")?.textContent?.includes("resumed"),
   );
+  await host.keyboard.press("Escape");
   await host.selectOption(".multiplayer-map", "crosswind");
   await host.selectOption(".multiplayer-map", "city-circuit");
   if (await host.locator(".multiplayer-map").inputValue() !== "crosswind") {
@@ -199,9 +217,9 @@ async function testPublicDrivingMultiplayer(browserInstance) {
     undefined,
     { timeout: 20_000 },
   );
-  await host.click("#pause-button");
+  await host.click("#resume-driving");
   await client.waitForFunction(
-    () => document.querySelector(".multiplayer-diagnostics")?.textContent?.includes("RTT"),
+    () => document.querySelector(".multiplayer-network-hud")?.textContent?.includes("RTT"),
     undefined,
     { timeout: 10_000 },
   );
@@ -216,6 +234,7 @@ async function testPublicDrivingMultiplayer(browserInstance) {
   await client.keyboard.up("ArrowRight");
   const after = await host.locator("#game-canvas").screenshot();
   if (before.equals(after)) throw new Error("Public multiplayer driving presentation did not advance.");
+  await client.keyboard.press("Escape");
   await client.click(".multiplayer-leave");
   await host.waitForFunction(
     () => document.querySelector(".multiplayer-player-count")?.textContent?.startsWith("1 player"),
@@ -223,6 +242,7 @@ async function testPublicDrivingMultiplayer(browserInstance) {
     { timeout: 10_000 },
   );
 
+  await host.keyboard.press("Escape");
   await host.fill(".multiplayer-host-controls input", "Taylor");
   await host.click(".multiplayer-host-controls > button");
   await host.waitForFunction(

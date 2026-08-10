@@ -175,7 +175,8 @@ Version-one lifecycle rules:
 - configuration epochs clear stale interpolation, synchronize rendered-world replacement, and reset camera tracking rather than easing across maps;
 - every connected client must acknowledge the loaded epoch before host resume;
 - overlapping map transitions are rejected, load failures close the affected session, and prolonged waits report how many players remain;
-- the public overlay reports RTT, snapshot jitter, interpolation underflow, extrapolation, and buffer depth;
+- a compact bottom-left HUD reports RTT, snapshot jitter, interpolation underflow, extrapolation, and buffer depth;
+- invite, player, map, and session management live in the pause screen rather than obscuring active driving;
 - losing the host ends the session;
 - reconnect and host migration are deferred.
 
