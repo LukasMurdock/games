@@ -63,6 +63,8 @@ main {
 .events { grid-column: 1 / -1; min-height: 150px; }
 .section-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .section-heading label { display: grid; gap: 5px; color: #91a297; font-size: 10px; }
+.lab-selects { display: flex; flex-wrap: wrap; justify-content: end; gap: 8px; }
+.lab-selects select { max-width: 230px; }
 select { min-height: 38px; padding: 0 10px; }
 .scenario-list { display: grid; gap: 8px; margin-top: 22px; }
 .scenario-option { display: grid; gap: 3px; padding: 13px 14px; text-align: left; }
@@ -74,6 +76,9 @@ select { min-height: 38px; padding: 0 10px; }
 .trace-facts dt { color: #778b7d; font-size: 10px; }
 .trace-facts dd { margin: 0; color: #c8d5c8; font-size: 10px; }
 .transport { display: flex; flex-wrap: wrap; justify-content: end; gap: 7px; }
+.layer-toggle { display: inline-flex; padding: 2px; border: 1px solid #34443b; border-radius: 10px; background: #0c1511; }
+.layer-toggle button { min-height: 32px; border: 0; padding-inline: 9px; background: transparent; font-size: 10px; }
+.layer-toggle button[aria-pressed="true"] { background: #30482f; }
 #start-audio, #play-pause { border-color: #78946c; background: #30482f; }
 .loop-toggle { display: inline-flex; min-height: 38px; align-items: center; gap: 6px; padding: 0 10px; border: 1px solid #34443b; border-radius: 10px; color: #b6c5b8; font-size: 11px; }
 .telemetry { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 7px; margin: 20px 0 12px; }

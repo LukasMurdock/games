@@ -1,5 +1,14 @@
 import "./styles/maneuver-lab.css";
-import { createCarAudio, type CarAudio } from "./lib/driving-game/audio/car-audio";
+import {
+  createCarAudio,
+  type CarAudio,
+  type CarAudioIsolation,
+} from "./lib/driving-game/audio/car-audio";
+import {
+  DEFAULT_ENGINE_TYPE,
+  ENGINE_TYPES,
+  type EngineTypeId,
+} from "./lib/driving-game/audio/engine-types";
 import {
   cloneTransmissionTuning,
   type TransmissionTuning,
@@ -27,6 +36,7 @@ const context2d = (canvas: HTMLCanvasElement) => {
   return context;
 };
 
+const engineSelect = element<HTMLSelectElement>("#engine");
 const profileSelect = element<HTMLSelectElement>("#profile");
 const scenarioList = element("#scenario-list");
 const description = element("#scenario-description");
@@ -44,6 +54,8 @@ const spectrogram = element<HTMLCanvasElement>("#spectrogram");
 const spectrumContext = context2d(spectrogram);
 
 let scenarioId: ManeuverId = "launch";
+let engineId: EngineTypeId = DEFAULT_ENGINE_TYPE;
+let audioIsolation: CarAudioIsolation = "mix";
 let trace = buildManeuverTrace(scenarioId);
 let segments = maneuverSegmentsForTrace(MANEUVER_SCENARIOS[scenarioId], trace);
 let playhead = 0;
@@ -61,6 +73,20 @@ function selectedProfile(): DrivingProfileName {
   return profileSelect.value === "loose" ? "loose" : "aggressive";
 }
 
+function selectedEngine() {
+  return ENGINE_TYPES[engineId];
+}
+
+function populateEngineSelect() {
+  engineSelect.replaceChildren(...Object.entries(ENGINE_TYPES).map(([id, definition]) => {
+    const option = document.createElement("option");
+    option.value = id;
+    option.textContent = definition.shortTitle;
+    return option;
+  }));
+  engineSelect.value = engineId;
+}
+
 function readDynoTuning(): TransmissionTuning {
   element("#tuning-source").textContent = "Dyno defaults";
   try {
@@ -75,11 +101,21 @@ function readDynoTuning(): TransmissionTuning {
   return cloneTransmissionTuning();
 }
 
+function effectiveTransmissionTuning() {
+  if (engineId === "turboI6") return readDynoTuning();
+  element("#tuning-source").textContent = "Engine defaults";
+  return cloneTransmissionTuning(selectedEngine().defaultTransmission);
+}
+
 function ensureAudio() {
   if (!audio) {
-    tuning = readDynoTuning();
-    audio = createCarAudio(DRIVING_PROFILES[selectedProfile()], tuning);
+    tuning = effectiveTransmissionTuning();
+    audio = createCarAudio(DRIVING_PROFILES[selectedProfile()], {
+      engine: selectedEngine(),
+      transmission: tuning,
+    });
     spectrum = audio ? new Uint8Array(audio.getAnalyser().frequencyBinCount) : null;
+    audio?.setIsolation(audioIsolation);
   }
   audio?.setPaused(false);
   audioButton.textContent = audio ? "Sound running" : "Audio unavailable";
@@ -125,7 +161,12 @@ function selectScenario(nextId: ManeuverId) {
 
 function renderScenarioMetadata() {
   const scenario = MANEUVER_SCENARIOS[scenarioId];
-  description.textContent = scenario.description;
+  const engine = selectedEngine();
+  description.textContent = `${scenario.description} ${engine.description}`;
+  element("#engine-model").textContent = engine.shortTitle;
+  element("#engine-provenance").textContent = engine.provenance === "reference-derived"
+    ? "Reference-derived"
+    : "Procedural prototype";
   timeline.max = String(scenario.duration);
   timeline.value = String(playhead);
   element("#segment-track").replaceChildren(...segments.map((segment, index) => {
@@ -374,6 +415,8 @@ function copyTrace() {
   const payload = {
     scenario: { ...MANEUVER_SCENARIOS[scenarioId], segments },
     profile: selectedProfile(),
+    engine: selectedEngine(),
+    audioIsolation,
     sampleRate: 120,
     transmissionTuning: tuning,
     samples: trace,
@@ -385,8 +428,20 @@ function copyTrace() {
 }
 
 audioButton.addEventListener("click", ensureAudio);
+document.querySelectorAll<HTMLButtonElement>("[data-audio-isolation]").forEach((button) => {
+  button.addEventListener("click", () => {
+    const requested = button.dataset.audioIsolation;
+    if (requested !== "mix" && requested !== "engine" && requested !== "tires") return;
+    audioIsolation = requested;
+    audio?.setIsolation(audioIsolation);
+    document.querySelectorAll<HTMLButtonElement>("[data-audio-isolation]").forEach((option) => {
+      option.setAttribute("aria-pressed", String(option.dataset.audioIsolation === audioIsolation));
+    });
+    logEvent(`Audio isolation: ${button.textContent?.trim() ?? audioIsolation}`);
+  });
+});
 element("#reload-tuning").addEventListener("click", () => {
-  tuning = readDynoTuning();
+  tuning = effectiveTransmissionTuning();
   recreateAudio();
   audio?.reset();
   logEvent("Dyno tuning reloaded");
@@ -395,6 +450,11 @@ playButton.addEventListener("click", () => { void setPlaying(!playing); });
 element("#replay").addEventListener("click", () => { void replay(); });
 element("#copy-trace").addEventListener("click", copyTrace);
 element("#clear-events").addEventListener("click", () => eventLog.replaceChildren());
+engineSelect.addEventListener("change", () => {
+  engineId = engineSelect.value as EngineTypeId;
+  recreateAudio();
+  selectScenario(scenarioId);
+});
 profileSelect.addEventListener("change", () => {
   recreateAudio();
   selectScenario(scenarioId);
@@ -437,6 +497,7 @@ function frame(now: number) {
 }
 
 clearSpectrogram();
+populateEngineSelect();
 renderScenarioButtons();
 renderScenarioMetadata();
 renderFrame(trace[0]);

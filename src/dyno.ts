@@ -116,14 +116,14 @@ function recreateAudio() {
   audio?.destroy();
   audio = null;
   if (!wasStarted) return;
-  audio = createCarAudio(DRIVING_PROFILES[selectedProfileName()], tuning);
+  audio = createCarAudio(DRIVING_PROFILES[selectedProfileName()], { transmission: tuning });
   audio?.reset();
   spectrum = audio ? new Uint8Array(audio.getAnalyser().frequencyBinCount) : null;
 }
 
 function startAudio() {
   if (!audio) {
-    audio = createCarAudio(DRIVING_PROFILES[selectedProfileName()], tuning);
+    audio = createCarAudio(DRIVING_PROFILES[selectedProfileName()], { transmission: tuning });
     spectrum = audio ? new Uint8Array(audio.getAnalyser().frequencyBinCount) : null;
   }
   element<HTMLButtonElement>("#start-audio").textContent = "Audio running";

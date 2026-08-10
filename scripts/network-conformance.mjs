@@ -399,7 +399,19 @@ async function testManeuverSoundLab(browserInstance) {
   if (await page.locator("[data-scenario]").count() !== 4) {
     throw new Error("Maneuver Sound Lab did not expose all production scenarios.");
   }
+  if (await page.locator("#engine option").count() !== 3) {
+    throw new Error("Maneuver Sound Lab did not expose all registered engine definitions.");
+  }
+  if (await page.locator("[data-audio-isolation]").count() !== 3) {
+    throw new Error("Maneuver Sound Lab did not expose engine and tire isolation.");
+  }
+  await page.click('[data-audio-isolation="tires"]');
+  if (await page.getAttribute('[data-audio-isolation="tires"]', "aria-pressed") !== "true") {
+    throw new Error("Maneuver Sound Lab did not select tire isolation.");
+  }
+  await page.click('[data-audio-isolation="mix"]');
   const launchPath = await page.locator("#path-canvas").screenshot();
+  await page.selectOption("#engine", "naturallyAspiratedV8");
   await page.click('[data-scenario="idle"]');
   await page.click("#play-pause");
   await page.waitForFunction(() => Number(document.querySelector("#time-readout")?.textContent) > 0.25);

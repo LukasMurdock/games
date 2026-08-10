@@ -1,18 +1,12 @@
-// Generated from local reference analysis. The shipped data is 128 quantized order magnitudes,
-// not source audio. Each index represents a 0.5x crank-speed engine order.
+// Generic order-synthesis processor. Engine identity and quantized order magnitudes arrive as
+// structured-clone-safe processor options; no source audio or engine-specific table ships here.
 export const ENGINE_WORKLET_SOURCE = String.raw`
-const ENGINE_DNA = [
-  [0,0,0,0,76,255,59,72,57,35,59,127,58,47,49,27,57,102,59,40,40,36,54,85,28,21,41,36,48,75,29,31],
-  [0,0,0,29,60,255,84,39,35,35,82,229,60,36,27,28,52,119,45,37,28,26,62,103,45,36,40,30,49,82,28,26],
-  [0,0,5,42,78,237,76,57,54,45,116,255,100,35,49,60,63,92,50,53,57,43,80,108,56,29,37,39,52,78,59,76],
-  [0,0,41,55,56,188,101,76,80,96,79,255,109,25,27,56,85,202,74,90,60,70,63,133,82,58,107,101,104,109,110,113],
-];
-
-class TurboI6OrderProcessor extends AudioWorkletProcessor {
-  constructor() {
+class ConfigurableEngineOrderProcessor extends AudioWorkletProcessor {
+  constructor(options) {
     super();
-    this.targetRpm = 900;
-    this.rpm = 900;
+    this.definition = options.processorOptions.definition;
+    this.targetRpm = this.definition.idleRpm;
+    this.rpm = this.definition.idleRpm;
     this.targetLoad = 0.45;
     this.load = 0.45;
     this.targetSpool = 0;
@@ -34,12 +28,12 @@ class TurboI6OrderProcessor extends AudioWorkletProcessor {
     this.noiseMid = 0;
     this.timbreWander = 0;
     this.previousCylinder = -1;
-    this.cylinderStrength = [1, 0.972, 1.026, 0.988, 1.017, 0.981];
+    this.cylinderStrength = this.definition.cylinderStrength;
     this.tableSize = 2048;
-    this.tables = ENGINE_DNA.map((orders) => this.buildTable(orders));
+    this.tables = this.definition.orderTables.map((orders) => this.buildTable(orders));
     this.port.onmessage = ({ data }) => {
       if (data.type === 'state') {
-        this.targetRpm = Math.max(850, Math.min(7900, data.rpm));
+        this.targetRpm = Math.max(this.definition.idleRpm, Math.min(this.definition.redlineRpm, data.rpm));
         this.targetLoad = Math.max(0, Math.min(1, data.load));
         this.targetSpool = Math.max(0, Math.min(1, data.spool));
       } else if (data.type === 'shift') {
@@ -88,13 +82,13 @@ class TurboI6OrderProcessor extends AudioWorkletProcessor {
   }
 
   tablePositionForRpm(rpm) {
-    const centers = [2200, 3600, 5000, 6800];
+    const centers = this.definition.tableCentersRpm;
     if (rpm <= centers[0]) return 0;
-    if (rpm >= centers[3]) return 3;
+    if (rpm >= centers[centers.length - 1]) return centers.length - 1;
     for (let i = 0; i < centers.length - 1; i++) {
       if (rpm <= centers[i + 1]) return i + (rpm - centers[i]) / (centers[i + 1] - centers[i]);
     }
-    return 3;
+    return centers.length - 1;
   }
 
   readTable(table, phase) {
@@ -116,7 +110,7 @@ class TurboI6OrderProcessor extends AudioWorkletProcessor {
 
     for (let i = 0; i < left.length; i++) {
       this.time += 1 / sampleRate;
-      const idleHunt = Math.sin(this.time * Math.PI * 2 * 0.63) * 18 * Math.max(0, 1 - this.load * 1.7);
+      const idleHunt = Math.sin(this.time * Math.PI * 2 * 0.63) * this.definition.idleHuntRpm * Math.max(0, 1 - this.load * 1.7);
       this.rpm += (this.targetRpm + idleHunt - this.rpm) * rpmAttack;
       this.load += (this.targetLoad - this.load) * loadAttack;
       this.spool += (this.targetSpool - this.spool) * spoolAttack;
@@ -128,28 +122,27 @@ class TurboI6OrderProcessor extends AudioWorkletProcessor {
         this.shiftGate += (1 - this.shiftGate) * shiftRecovery;
       }
 
-      // The table spans two crank revolutions, so its fundamental is the 0.5x engine order.
       const crankHz = this.rpm / 60;
-      const revolutionTexture = 1 + Math.sin(this.phase / this.tableSize * Math.PI * 12) * 0.0028;
-      this.phase += crankHz * 0.5 * this.tableSize / sampleRate * revolutionTexture;
+      const revolutionTexture = 1 + Math.sin(this.phase / this.tableSize * Math.PI * this.cylinderStrength.length * 2) * 0.0028;
+      this.phase += crankHz * this.definition.orderFundamental * this.tableSize / sampleRate * revolutionTexture;
       if (this.phase >= this.tableSize) this.phase -= this.tableSize;
 
       this.timbreWander += ((this.random() * 2 - 1) - this.timbreWander) * 0.000025;
       const tablePosition = Math.max(0, Math.min(
-        3,
+        this.tables.length - 1,
         this.tablePositionForRpm(this.rpm)
           + this.timbreWander * 0.09
           + Math.sin(this.time * 0.71) * 0.025,
       ));
       const lowerTable = Math.floor(tablePosition);
-      const upperTable = Math.min(3, lowerTable + 1);
+      const upperTable = Math.min(this.tables.length - 1, lowerTable + 1);
       const tableBlend = tablePosition - lowerTable;
       const lowSample = this.readTable(this.tables[lowerTable], this.phase);
       const highSample = this.readTable(this.tables[upperTable], this.phase);
       let periodic = lowSample + (highSample - lowSample) * tableBlend;
 
       // Persistent cylinder differences add repeatable imperfection without randomizing the timbre.
-      const cylinder = Math.floor(this.phase / this.tableSize * 6) % 6;
+      const cylinder = Math.floor(this.phase / this.tableSize * this.cylinderStrength.length) % this.cylinderStrength.length;
       periodic *= this.cylinderStrength[cylinder];
       if (cylinder !== this.previousCylinder) {
         this.previousCylinder = cylinder;
@@ -158,7 +151,7 @@ class TurboI6OrderProcessor extends AudioWorkletProcessor {
 
       // A firing-cut limiter gates the same order spectrum instead of introducing a separate effect.
       let limiterTarget = 1;
-      if (this.rpm > 7700) {
+      if (this.rpm > this.definition.limiterRpm) {
         const limiterPattern = [1, 1, 1, 0, 1, 0, 1, 1, 0];
         this.limiterPhase += 22 / sampleRate;
         if (this.limiterPhase >= 1) this.limiterPhase -= 1;
@@ -174,21 +167,25 @@ class TurboI6OrderProcessor extends AudioWorkletProcessor {
       const lowTurbulence = this.noiseLow;
       const midTurbulence = this.noiseMid - this.noiseLow;
       const highTurbulence = rawNoise - this.noiseMid;
-      const rpmRatio = Math.max(0, Math.min(1, (this.rpm - 900) / 6900));
+      const rpmRatio = Math.max(0, Math.min(1,
+        (this.rpm - this.definition.idleRpm)
+          / Math.max(1, this.definition.redlineRpm - this.definition.idleRpm)
+      ));
       const turbulence = (
         lowTurbulence * 0.11
         + midTurbulence * (0.038 + rpmRatio * 0.025)
         + highTurbulence * (0.004 + rpmRatio * 0.012)
-      ) * this.load * this.load;
+      ) * this.load * this.load * this.definition.turbulence;
 
       this.mechanicalEnvelope *= 0.9945;
-      const mechanics = highTurbulence * this.mechanicalEnvelope * 0.022;
-      const turboFrequency = 1050 + this.spool * 4100;
+      const mechanics = highTurbulence * this.mechanicalEnvelope * this.definition.mechanicalVolume;
+      const induction = this.definition.induction;
+      const turboFrequency = induction.whistleBaseHz + this.spool * induction.whistleRangeHz;
       this.turboPhase += Math.PI * 2 * turboFrequency / sampleRate;
       if (this.turboPhase > Math.PI * 2) this.turboPhase -= Math.PI * 2;
       const turbo = (Math.sin(this.turboPhase) + Math.sin(this.turboPhase * 1.013) * 0.34)
-        * this.spool * this.spool * 0.015;
-      const wastegate = highTurbulence * Math.max(0, this.spool - 0.78) * this.load * 0.04;
+        * this.spool * this.spool * induction.whistleVolume;
+      const wastegate = highTurbulence * Math.max(0, this.spool - 0.78) * this.load * induction.wastegateVolume;
       const release = highTurbulence * this.releaseEnvelope * 0.14;
       this.releaseEnvelope *= 0.9997;
       const downshiftBark = (
@@ -198,15 +195,15 @@ class TurboI6OrderProcessor extends AudioWorkletProcessor {
       ) * this.downshiftEnvelope;
       this.downshiftEnvelope *= 0.99955;
 
-      const tonalLevel = 0.1 + this.load * 0.18;
-      const drive = 1.35 + this.load * 1.25;
+      const tonalLevel = this.definition.tonalBase + this.load * this.definition.tonalLoad;
+      const drive = this.definition.driveBase + this.load * this.definition.driveLoad;
       const engineCore = periodic * tonalLevel + turbulence + mechanics + turbo + wastegate + downshiftBark;
-      const sample = Math.tanh((engineCore * this.shiftGate + release) * drive) * 0.5;
+      const sample = Math.tanh((engineCore * this.shiftGate + release) * drive) * this.definition.outputGain;
       left[i] = sample;
-      right[i] = sample * 0.985;
+      right[i] = sample * this.definition.stereoWidth;
     }
     return true;
   }
 }
-registerProcessor('turbo-i6-engine', TurboI6OrderProcessor);
+registerProcessor('configurable-engine-order', ConfigurableEngineOrderProcessor);
 `;

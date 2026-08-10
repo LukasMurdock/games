@@ -2,6 +2,10 @@ import * as THREE from "three";
 import type { DrivingProfile } from "../driving-profiles";
 import type { DriftPhase } from "../types";
 import { ENGINE_WORKLET_SOURCE } from "./engine-worklet-source";
+import {
+  ENGINE_TYPES,
+  type EngineDefinition,
+} from "./engine-types";
 import { TIRE_WORKLET_SOURCE } from "./tire-worklet-source";
 import {
   cloneTransmissionTuning,
@@ -32,11 +36,19 @@ export type CarAudioTelemetry = {
   transmissionSpeed: number;
 };
 
+export type CarAudioOptions = {
+  engine?: EngineDefinition;
+  transmission?: TransmissionTuning;
+};
+
+export type CarAudioIsolation = "mix" | "engine" | "tires";
+
 export type CarAudio = {
   update: (parameters: CarAudioParameters) => void;
   impact: (strength: number) => void;
   reset: () => void;
   setPaused: (paused: boolean) => void;
+  setIsolation: (isolation: CarAudioIsolation) => void;
   setTransmissionTuning: (tuning: TransmissionTuning) => void;
   whenReady: () => Promise<void>;
   getTelemetry: () => Readonly<CarAudioTelemetry>;
@@ -46,9 +58,12 @@ export type CarAudio = {
 
 export function createCarAudio(
   DRIVING: DrivingProfile,
-  initialTransmissionTuning = DEFAULT_TRANSMISSION_TUNING,
+  options: CarAudioOptions = {},
 ): CarAudio | null {
-  let TRANSMISSION = cloneTransmissionTuning(initialTransmissionTuning);
+  const ENGINE = options.engine ?? ENGINE_TYPES.turboI6;
+  let TRANSMISSION = cloneTransmissionTuning(
+    options.transmission ?? ENGINE.defaultTransmission ?? DEFAULT_TRANSMISSION_TUNING,
+  );
   const AudioContextClass = window.AudioContext
     ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
   if (!AudioContextClass) return null;
@@ -66,6 +81,12 @@ export function createCarAudio(
   analyser.fftSize = 2048;
   analyser.smoothingTimeConstant = 0.72;
   master.connect(compressor).connect(analyser).connect(context.destination);
+  const engineBus = context.createGain();
+  const tireBus = context.createGain();
+  const environmentBus = context.createGain();
+  engineBus.connect(master);
+  tireBus.connect(master);
+  environmentBus.connect(master);
 
   const sampleCount = context.sampleRate * 2;
   const noiseBuffer = context.createBuffer(1, sampleCount, context.sampleRate);
@@ -106,17 +127,17 @@ export function createCarAudio(
     return { filter, gain };
   }
 
-  const rolling = noiseLayer(roadNoise, "bandpass", 190, 0.65);
-  const surface = noiseLayer(roadNoise, "bandpass", 145, 0.8);
-  const wind = noiseLayer(windNoise, "highpass", 900, 0.5);
-  const transient = noiseLayer(transientNoise, "bandpass", 850, 1.9);
+  const rolling = noiseLayer(roadNoise, "bandpass", 190, 0.65, environmentBus);
+  const surface = noiseLayer(roadNoise, "bandpass", 145, 0.8, environmentBus);
+  const wind = noiseLayer(windNoise, "highpass", 900, 0.5, environmentBus);
+  const transient = noiseLayer(transientNoise, "bandpass", 850, 1.9, engineBus);
 
   const engineMidNotch = context.createBiquadFilter();
   engineMidNotch.type = "peaking";
-  engineMidNotch.frequency.value = 1200;
-  engineMidNotch.Q.value = 1.05;
+  engineMidNotch.frequency.value = ENGINE.outputEq.midFrequencyHz;
+  engineMidNotch.Q.value = ENGINE.outputEq.midQ;
   engineMidNotch.gain.value = 0;
-  engineMidNotch.connect(master);
+  engineMidNotch.connect(engineBus);
 
   let engineNode: AudioWorkletNode | null = null;
   let tireNode: AudioWorkletNode | null = null;
@@ -130,10 +151,11 @@ export function createCarAudio(
   void context.audioWorklet.addModule(workletUrl).then(() => {
     URL.revokeObjectURL(workletUrl);
     if (audioDestroyed) return;
-    engineNode = new AudioWorkletNode(context, "turbo-i6-engine", {
+    engineNode = new AudioWorkletNode(context, "configurable-engine-order", {
       numberOfInputs: 0,
       numberOfOutputs: 1,
       outputChannelCount: [2],
+      processorOptions: { definition: ENGINE.synthesis },
     });
     tireNode = new AudioWorkletNode(context, "drift-tire-model", {
       numberOfInputs: 0,
@@ -141,8 +163,13 @@ export function createCarAudio(
       outputChannelCount: [2],
     });
     engineNode.connect(engineMidNotch);
-    tireNode.connect(master);
-    engineNode.port.postMessage({ type: "state", rpm: 900, load: 0.45, spool: 0 });
+    tireNode.connect(tireBus);
+    engineNode.port.postMessage({
+      type: "state",
+      rpm: ENGINE.synthesis.idleRpm,
+      load: 0.45,
+      spool: 0,
+    });
     tireNode.port.postMessage({
       type: "state",
       speed: 0,
@@ -161,7 +188,7 @@ export function createCarAudio(
   let transmissionTime = 0;
   let recoveryShiftInhibit = 0;
   let previouslyReversing = false;
-  let engineRpm = 900;
+  let engineRpm = ENGINE.synthesis.idleRpm;
   let engineLoad = 0.45;
   let turboSpool = 0;
   let enginePunch = 0;
@@ -173,7 +200,7 @@ export function createCarAudio(
   let chirpCooldown = 0;
   const telemetry: CarAudioTelemetry = {
     gear: 1,
-    rpm: 900,
+    rpm: ENGINE.synthesis.idleRpm,
     load: 0.16,
     spool: 0,
     transmissionSpeed: 0,
@@ -193,7 +220,12 @@ export function createCarAudio(
     transient.gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
   }
 
-  function triggerThump(frequency: number, volume: number, duration: number) {
+  function triggerThump(
+    frequency: number,
+    volume: number,
+    duration: number,
+    destination: AudioNode = engineBus,
+  ) {
     const oscillator = context.createOscillator();
     const gain = context.createGain();
     oscillator.type = "sine";
@@ -201,7 +233,7 @@ export function createCarAudio(
     oscillator.frequency.exponentialRampToValueAtTime(Math.max(25, frequency * 0.58), context.currentTime + duration);
     gain.gain.setValueAtTime(Math.max(0.0001, volume), context.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + duration);
-    oscillator.connect(gain).connect(master);
+    oscillator.connect(gain).connect(destination);
     oscillator.start();
     oscillator.stop(context.currentTime + duration + 0.02);
   }
@@ -385,10 +417,17 @@ export function createCarAudio(
         : 1;
       const cruiseWander = (1 - accelerationLoad) * topGearWanderScale
         * (Math.sin(now * 0.83) * 42 + Math.sin(now * 2.17) * 19);
-      const targetRpm = THREE.MathUtils.lerp(900, drivingRpm, THREE.MathUtils.smoothstep(speed, 0.15, 2))
-        + cruiseWander;
+      const targetRpm = THREE.MathUtils.lerp(
+        ENGINE.synthesis.idleRpm,
+        drivingRpm,
+        THREE.MathUtils.smoothstep(speed, 0.15, 2),
+      ) + cruiseWander;
       // The worklet owns the single 55 ms RPM response; avoid cascading another long smoother here.
-      engineRpm = targetRpm;
+      engineRpm = THREE.MathUtils.clamp(
+        targetRpm,
+        ENGINE.synthesis.idleRpm,
+        ENGINE.synthesis.redlineRpm,
+      );
 
       let targetLoad = 0.16
         + speedNormalized * 0.08
@@ -401,8 +440,17 @@ export function createCarAudio(
       if (phase === "recover") targetLoad = 0.2;
       if (boosting) targetLoad += 0.22;
       engineLoad = THREE.MathUtils.lerp(engineLoad, THREE.MathUtils.clamp(targetLoad, 0, 1), 1 - Math.exp(-dt / 0.085));
-      const targetSpool = THREE.MathUtils.smoothstep(engineRpm, 2700, 3400) * engineLoad;
-      const spoolResponse = targetSpool > turboSpool ? 0.18 : 0.32;
+      const induction = ENGINE.synthesis.induction;
+      const targetSpool = induction.type === "naturally-aspirated"
+        ? 0
+        : THREE.MathUtils.smoothstep(
+          engineRpm,
+          induction.spoolStartRpm,
+          induction.spoolFullRpm,
+        ) * engineLoad;
+      const spoolResponse = induction.type === "supercharged"
+        ? 0.06
+        : targetSpool > turboSpool ? 0.18 : 0.32;
       turboSpool = THREE.MathUtils.lerp(turboSpool, targetSpool, 1 - Math.exp(-dt / spoolResponse));
       enginePunch = Math.max(0, enginePunch - dt * 2.7);
       telemetry.gear = gear + 1;
@@ -433,7 +481,7 @@ export function createCarAudio(
       }
       if (phase === "transition" && previousPhase !== "transition") {
         tireNode?.port.postMessage({ type: "transition" });
-        triggerThump(68, 0.055, 0.13);
+        triggerThump(68, 0.055, 0.13, tireBus);
         chirpCooldown = 0.1;
       }
       if (absoluteSlip > 12 && Math.abs(slipRate) > 80 && chirpCooldown <= 0) {
@@ -477,7 +525,7 @@ export function createCarAudio(
       transmissionTime = 0;
       recoveryShiftInhibit = 0;
       previouslyReversing = false;
-      engineRpm = 900;
+      engineRpm = ENGINE.synthesis.idleRpm;
       engineLoad = 0.16;
       turboSpool = 0;
       enginePunch = 0;
@@ -488,15 +536,25 @@ export function createCarAudio(
       previousAbsoluteSlip = 0;
       chirpCooldown = 0;
       telemetry.gear = 1;
-      telemetry.rpm = 900;
+      telemetry.rpm = ENGINE.synthesis.idleRpm;
       telemetry.load = 0.16;
       telemetry.spool = 0;
       telemetry.transmissionSpeed = 0;
       engineNode?.port.postMessage({ type: "reset" });
-      engineNode?.port.postMessage({ type: "state", rpm: 900, load: 0.16, spool: 0 });
+      engineNode?.port.postMessage({
+        type: "state",
+        rpm: ENGINE.synthesis.idleRpm,
+        load: 0.16,
+        spool: 0,
+      });
     },
     setPaused(paused) {
       setSmooth(master.gain, paused ? 0.0001 : 0.48, paused ? 0.035 : 0.08);
+    },
+    setIsolation(isolation) {
+      setSmooth(engineBus.gain, isolation === "tires" ? 0.0001 : 1, 0.035);
+      setSmooth(tireBus.gain, isolation === "engine" ? 0.0001 : 1, 0.035);
+      setSmooth(environmentBus.gain, isolation === "mix" ? 1 : 0.0001, 0.035);
     },
     setTransmissionTuning(tuning) {
       TRANSMISSION = cloneTransmissionTuning(tuning);

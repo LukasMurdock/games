@@ -24,17 +24,24 @@
       <section class="scenario-panel panel" aria-labelledby="scenario-heading">
         <div class="section-heading">
           <div><span>Real game inputs</span><h2 id="scenario-heading">Maneuver</h2></div>
-          <label>Character
-            <select id="profile">
-              <option value="aggressive" selected>Aggressive / Chase</option>
-              <option value="loose">Cruise / Loose</option>
-            </select>
-          </label>
+          <div class="lab-selects">
+            <label>Engine
+              <select id="engine"></select>
+            </label>
+            <label>Character
+              <select id="profile">
+                <option value="aggressive" selected>Aggressive / Chase</option>
+                <option value="loose">Cruise / Loose</option>
+              </select>
+            </label>
+          </div>
         </div>
         <div id="scenario-list" class="scenario-list"></div>
         <p id="scenario-description" class="scenario-description"></p>
         <dl class="trace-facts">
           <div><dt>Simulation</dt><dd>Production core</dd></div>
+          <div><dt>Engine model</dt><dd id="engine-model">Turbo I6</dd></div>
+          <div><dt>Provenance</dt><dd id="engine-provenance">Reference-derived</dd></div>
           <div><dt>Trace rate</dt><dd>120 Hz</dd></div>
           <div><dt>Audio tuning</dt><dd id="tuning-source">Dyno defaults</dd></div>
         </dl>
@@ -46,6 +53,11 @@
           <div class="transport">
             <button id="start-audio" type="button">Start sound</button>
             <button id="reload-tuning" type="button">Reload tuning</button>
+            <div class="layer-toggle" role="group" aria-label="Audio layer isolation">
+              <button type="button" data-audio-isolation="mix" aria-pressed="true">Full mix</button>
+              <button type="button" data-audio-isolation="engine" aria-pressed="false">Engine only</button>
+              <button type="button" data-audio-isolation="tires" aria-pressed="false">Tires only</button>
+            </div>
             <button id="play-pause" type="button">Play</button>
             <button id="replay" type="button">Replay</button>
             <label class="loop-toggle"><input id="loop" type="checkbox" /> Loop</label>
