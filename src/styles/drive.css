@@ -506,6 +506,22 @@
   .multiplayer-player-count { color: #b9d99d; font-size: 12px; font-weight: 800; text-transform: uppercase; }
   .multiplayer-player-list { color: rgba(255, 255, 255, 0.58); font-size: 11px; }
   .multiplayer-leave { margin-top: 14px; }
+  .multiplayer-link-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 14px;
+  }
+  .multiplayer-link-details {
+    margin-top: 12px;
+    color: rgba(255, 255, 255, 0.58);
+    font-size: 11px;
+  }
+  .multiplayer-link-details summary {
+    width: fit-content;
+    cursor: pointer;
+    user-select: none;
+  }
   .multiplayer-body output {
     display: block;
     max-height: 92px;
@@ -735,6 +751,23 @@
     color: #172117;
     font-weight: 800;
     cursor: pointer;
+  }
+
+  .pause-actions .multiplayer-audio,
+  .pause-actions .multiplayer-leave {
+    min-height: 42px;
+    padding: 0 16px;
+    border: 1px solid rgba(231, 245, 217, 0.34);
+    border-radius: 21px;
+    background: rgba(231, 245, 217, 0.07);
+    color: rgba(255, 255, 255, 0.78);
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .pause-actions .multiplayer-leave {
+    border-color: rgba(255, 255, 255, 0.16);
+    color: rgba(255, 255, 255, 0.58);
   }
 
   .touch-controls {

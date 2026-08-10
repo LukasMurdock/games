@@ -142,14 +142,15 @@ export async function startJoinedDrivingGame(root: HTMLElement, invite: DirectIn
   overlay.status.textContent = "Gathering a private WebRTC response…";
   try {
     const session = await JoinedDrivingSession.create(invite, responseBase);
-    const output = document.createElement("output");
-    output.textContent = session.responseUrl;
+    const actions = document.createElement("div");
+    actions.className = "multiplayer-link-actions";
     const copy = document.createElement("button");
     copy.type = "button";
     copy.textContent = "Copy response";
     bindCopyFeedback(copy, session.responseUrl, "response");
-    overlay.body.append(output, copy);
-    appendShareButton(overlay.body, session.responseUrl, "Game response");
+    actions.append(copy);
+    appendShareButton(actions, session.responseUrl, "Game response");
+    overlay.body.append(actions, createLinkDetails(session.responseUrl, "response"));
     overlay.status.textContent = "Share the response with the host, keep this tab open, and wait. You will join automatically when the host opens it.";
     startPlayLoop(root, worldHolder, session, overlay);
   } catch (error) {
@@ -173,15 +174,27 @@ export async function handleDrivingResponseLanding(
     setTimeout(() => window.close(), 250);
   } else {
     const fallbackUrl = createResponseFallbackUrl(fragment);
-    const output = document.createElement("output");
-    output.textContent = fallbackUrl;
+    const actions = document.createElement("div");
+    actions.className = "multiplayer-link-actions";
     const copy = document.createElement("button");
     copy.type = "button";
     copy.textContent = "Copy response";
     bindCopyFeedback(copy, fallbackUrl, "response");
-    overlay.body.append(output, copy);
-    appendShareButton(overlay.body, fallbackUrl, "Game response");
+    actions.append(copy);
+    appendShareButton(actions, fallbackUrl, "Game response");
+    overlay.body.append(actions, createLinkDetails(fallbackUrl, "response"));
   }
+}
+
+function createLinkDetails(url: string, label: string) {
+  const details = document.createElement("details");
+  details.className = "multiplayer-link-details";
+  const summary = document.createElement("summary");
+  summary.textContent = `Show ${label} link`;
+  const output = document.createElement("output");
+  output.textContent = url;
+  details.append(summary, output);
+  return details;
 }
 
 function createResponseFallbackUrl(fragment: string) {
@@ -273,6 +286,8 @@ function startPlayLoop(
   if (pauseButton) pauseButton.hidden = false;
   pauseOverlay?.classList.add("is-multiplayer");
   pauseOverlay?.append(overlay.overlay);
+  const pauseActions = pauseOverlay?.querySelector<HTMLElement>(".pause-actions");
+  pauseActions?.append(overlay.audio, overlay.leave);
   const diagnosticsHud = document.createElement("output");
   diagnosticsHud.className = "multiplayer-network-hud";
   diagnosticsHud.setAttribute("aria-label", "Network diagnostics");
@@ -604,7 +619,7 @@ function startPlayLoop(
     pauseOverlay?.classList.toggle("is-visible", showPausePanel);
     pauseOverlay?.setAttribute("aria-hidden", String(!showPausePanel));
     if (pauseHeading) pauseHeading.textContent = waitingForConnection
-      ? "Connecting…"
+      ? (canPause ? "Connecting…" : "Waiting for host…")
       : globallyPaused ? "Session paused." : "Session menu.";
     if (resumeButton) resumeButton.hidden = waitingForConnection
       || (canPause ? session.canResume === false : globallyPaused);

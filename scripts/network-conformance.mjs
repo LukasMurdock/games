@@ -150,7 +150,7 @@ async function testPublicDrivingMultiplayer(browserInstance) {
   );
   await client.goto(inviteUrl);
   const responseOutput = client.locator("#multiplayer-overlay output");
-  await responseOutput.waitFor({ state: "visible", timeout: 20_000 });
+  await responseOutput.waitFor({ state: "attached", timeout: 20_000 });
   const responseUrl = await responseOutput.textContent();
   if (!responseUrl?.includes("#response=")) throw new Error("Public driving client did not create a response.");
   const landing = await hostContext.newPage();
@@ -263,7 +263,7 @@ async function testPublicDrivingMultiplayer(browserInstance) {
   if (!secondInviteUrl) throw new Error("Host could not replace a departed player's invite slot.");
   await client.goto(secondInviteUrl);
   const secondResponseOutput = client.locator("#multiplayer-overlay output");
-  await secondResponseOutput.waitFor({ state: "visible", timeout: 20_000 });
+  await secondResponseOutput.waitFor({ state: "attached", timeout: 20_000 });
   const secondResponseUrl = await secondResponseOutput.textContent();
   if (!secondResponseUrl) throw new Error("Replacement client did not create a response.");
   const secondLanding = await hostContext.newPage();
