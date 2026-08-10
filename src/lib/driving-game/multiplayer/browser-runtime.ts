@@ -20,6 +20,7 @@ import type {
   AuthoritativeDrivingSnapshot,
 } from "./simulation";
 import { createAuthoritativeVehicleFleet } from "./vehicle-fleet";
+import { createAuthoritativePursuerFleet } from "./pursuer-fleet";
 
 const directCodec = new DirectInviteCodec();
 type PlaySession = {
@@ -69,7 +70,7 @@ export async function startHostedDrivingGame(root: HTMLElement) {
         <h2 id="multiplayer-configuration-title">Game configuration</h2>
         <p>Applies to everyone when the host resumes.</p>
       </div>
-      <label>Mode <select disabled><option>Cruise</option></select></label>
+      <label>Mode <select class="multiplayer-mode"><option value="cruise">Cruise</option><option value="chase">Chase</option></select></label>
       <label>Map <select class="multiplayer-map"></select></label>
     </section>
     <section class="multiplayer-control-group multiplayer-invites" aria-labelledby="multiplayer-invites-title">
@@ -91,14 +92,19 @@ export async function startHostedDrivingGame(root: HTMLElement) {
     mapSelect.append(option);
   }
   mapSelect.value = PRODUCTION_DRIVING_COMPOSITION.mapId;
+  const modeSelect = controls.querySelector(".multiplayer-mode") as HTMLSelectElement;
+  modeSelect.value = PRODUCTION_DRIVING_COMPOSITION.modeId;
   let acceptedMapId: keyof typeof GAME_MAPS = PRODUCTION_DRIVING_COMPOSITION.mapId;
-  mapSelect.addEventListener("change", () => {
+  let acceptedModeId: "cruise" | "chase" = PRODUCTION_DRIVING_COMPOSITION.modeId;
+  const applyConfiguration = () => {
     if (session.readiness.waiting) {
       mapSelect.value = acceptedMapId;
-      overlay.status.textContent = "Finish the current map transition before selecting another map.";
+      modeSelect.value = acceptedModeId;
+      overlay.status.textContent = "Finish the current transition before changing the game configuration.";
       return;
     }
     const mapId = mapSelect.value as keyof typeof GAME_MAPS;
+    const modeId = modeSelect.value === "chase" ? "chase" : "cruise";
     let nextSimulationWorld: ReturnType<typeof createSimulationWorld> | null = null;
     try {
       session.setPaused(true);
@@ -107,18 +113,23 @@ export async function startHostedDrivingGame(root: HTMLElement) {
         createMultiplayerDrivingConfig(
           createDrivingWorldQuery(nextSimulationWorld.world),
           mapId,
+          modeId,
         ),
         nextSimulationWorld.destroy,
       );
       nextSimulationWorld = null;
       acceptedMapId = mapId;
-      overlay.status.textContent = `Loading ${GAME_MAPS[mapId].title}. Waiting for players…`;
+      acceptedModeId = modeId;
+      overlay.status.textContent = `Loading ${modeId === "chase" ? "Chase" : "Cruise"} on ${GAME_MAPS[mapId].title}. Waiting for players…`;
     } catch (error) {
       nextSimulationWorld?.destroy();
       mapSelect.value = acceptedMapId;
+      modeSelect.value = acceptedModeId;
       overlay.status.textContent = error instanceof Error ? error.message : String(error);
     }
-  });
+  };
+  mapSelect.addEventListener("change", applyConfiguration);
+  modeSelect.addEventListener("change", applyConfiguration);
   const input = controls.querySelector("input") as HTMLInputElement;
   const createButton = controls.querySelector(".multiplayer-create-invite") as HTMLButtonElement;
   const slotsRoot = controls.querySelector(".multiplayer-slots") as HTMLElement;
@@ -297,6 +308,11 @@ function startPlayLoop(
   const fleet = createAuthoritativeVehicleFleet(holder.scene, {
     getPlayerLabel: (playerId) => session.getPlayerName?.(playerId) ?? playerId,
   });
+  const pursuerFleet = createAuthoritativePursuerFleet(holder.scene);
+  const chaseHud = document.createElement("output");
+  chaseHud.className = "multiplayer-chase-hud";
+  chaseHud.hidden = true;
+  root.append(chaseHud);
   const chaseCamera = new THREE.PerspectiveCamera(60, 1, 0.1, 2_000);
   const isometricCamera = new THREE.OrthographicCamera(-20, 20, 20, -20, 0.1, 2_000);
   const sideCamera = new THREE.OrthographicCamera(-17, 17, 12, -12, 0.1, 2_000);
@@ -327,12 +343,13 @@ function startPlayLoop(
   let trackedEpoch: number | undefined;
   let cameraInitialized = false;
   let audio: CarAudio | null = null;
+  let audioProfileId: "loose" | "aggressive" = "loose";
   let audioPaused: boolean | undefined;
   let lastRenderedSnapshot: AuthoritativeDrivingSnapshot | null = null;
   let hostPauseSnapshot: AuthoritativeDrivingSnapshot | null = null;
   let localMenuOpen = false;
   const ensureAudio = () => {
-    audio ??= createCarAudio(DRIVING_PROFILES.loose);
+    audio ??= createCarAudio(DRIVING_PROFILES[audioProfileId]);
     if (audio) overlay.audio.hidden = true;
   };
   root.addEventListener("pointerdown", ensureAudio);
@@ -366,8 +383,23 @@ function startPlayLoop(
       audio?.impact(event.terminal ? 1 : 0.55);
       return;
     }
+    if (event.type === "chase-captured") {
+      if (event.playerId === session.playerId) audio?.impact(1);
+      overlay.status.textContent = `${session.getPlayerName?.(event.playerId) ?? event.playerId} was caught after ${formatChaseTime(event.survivalTime)}.`;
+      return;
+    }
     if (event.type !== "configuration" || !loadAuthoritativeMap(event.mapId)) return;
+    const nextAudioProfileId = event.profileId === "aggressive" ? "aggressive" : "loose";
+    if (nextAudioProfileId !== audioProfileId) {
+      audioProfileId = nextAudioProfileId;
+      if (audio) {
+        audio.destroy();
+        audio = createCarAudio(DRIVING_PROFILES[audioProfileId]);
+        audio?.setPaused(true);
+      }
+    }
     fleet.update({ players: [] }, 0);
+    pursuerFleet.update({ players: [] }, 0);
     lastRenderedSnapshot = null;
     hostPauseSnapshot = null;
     loadedEpoch = event.configurationEpoch;
@@ -520,11 +552,14 @@ function startPlayLoop(
           ...sampledSnapshot,
           paused: true,
           players: sampledSnapshot.players.map((player) => frozenPlayers.get(player.playerId) ?? player),
+          pursuers: hostPauseSnapshot.pursuers,
+          chase: hostPauseSnapshot.chase,
         };
       } else snapshot = { ...hostPauseSnapshot, paused: true };
     }
     if (session.state === "closed") {
       fleet.update({ players: [] }, dt);
+      pursuerFleet.update({ players: [] }, dt);
       overlay.status.textContent = "The host ended this multiplayer session.";
       overlay.playerCount.textContent = "Session closed";
       overlay.playerList.textContent = "";
@@ -535,11 +570,22 @@ function startPlayLoop(
         }
         if (snapshot.modeId) root.dataset.gameMode = snapshot.modeId;
         fleet.update({ players: [] }, 0);
+        pursuerFleet.update({ players: [] }, 0);
         trackedEpoch = snapshot.configurationEpoch;
         cameraInitialized = false;
       }
       if (snapshot.configurationEpoch !== undefined) loadedEpoch = snapshot.configurationEpoch;
       fleet.update(snapshot, dt);
+      pursuerFleet.update(snapshot, dt);
+      chaseHud.hidden = snapshot.modeId !== "chase" || !snapshot.chase;
+      if (snapshot.chase) {
+        const capturedName = snapshot.chase.capturedPlayerId
+          ? session.getPlayerName?.(snapshot.chase.capturedPlayerId) ?? snapshot.chase.capturedPlayerId
+          : "";
+        chaseHud.textContent = snapshot.chase.state === "captured"
+          ? `${capturedName} caught · ${formatChaseTime(snapshot.chase.survivalTime)}`
+          : `Chase ${formatChaseTime(snapshot.chase.survivalTime)} · police ${snapshot.pursuers?.length ?? 0} · nearest ${Math.round(snapshot.chase.nearestDistance)}m${snapshot.chase.reinforcements ? " · reinforcements" : ""}`;
+      }
       const local = snapshot.players.find((player) => player.playerId === session.playerId);
       if (local) {
         if (audioPaused !== snapshot.paused) {
@@ -655,8 +701,10 @@ function startPlayLoop(
     desktopPointerQuery.removeEventListener("change", updateInputCapabilities);
     audio?.destroy();
     diagnosticsHud.remove();
+    chaseHud.remove();
     pauseOverlay?.classList.remove("is-visible", "is-multiplayer");
     fleet.destroy();
+    pursuerFleet.destroy();
     session.close();
     holder.destroy();
   };
@@ -667,6 +715,11 @@ function startPlayLoop(
   }, { once: true });
   window.addEventListener("beforeunload", destroy, { once: true });
   document.addEventListener("astro:before-swap", destroy, { once: true });
+}
+
+function formatChaseTime(seconds: number) {
+  const minutes = Math.floor(seconds / 60);
+  return `${minutes}:${Math.floor(seconds % 60).toString().padStart(2, "0")}`;
 }
 
 function setupOverlay(root: HTMLElement, title: string) {

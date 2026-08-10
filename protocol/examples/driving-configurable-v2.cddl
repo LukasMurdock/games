@@ -1,0 +1,95 @@
+; Configurable production authoritative driving extension.
+; Validate after concatenating this file with ../gamenet-v1.cddl.
+
+$game-input /= configurable-driving-input
+$game-snapshot /= configurable-driving-snapshot
+$game-event /= configurable-driving-event
+
+configurable-driving-input = {
+  0 => -1 / 0 / 1,
+  1 => number .ge 0 .le 1,
+  2 => bool,
+  3 => bool,
+  ? 4 => uint .le 4294967295, ; loaded configuration epoch
+  * uint => any
+}
+
+configurable-driving-snapshot = {
+  0 => [*8 configurable-driving-player],
+  1 => uint .le 4294967295, ; configuration epoch
+  2 => bool,               ; host paused
+  3 => tstr .size (1..64), ; map ID
+  4 => tstr .size (1..64), ; multiplayer mode ID
+  5 => tstr .size (1..64), ; profile ID
+  6 => 0 / 1,              ; automatic / manual controls
+  ? 7 => [*6 configurable-driving-pursuer],
+  ? 8 => configurable-driving-chase,
+  * uint => any
+}
+
+configurable-driving-player = {
+  0 => player-id,
+  1 => configurable-driving-vec2,
+  2 => configurable-driving-vec2,
+  3 => number,
+  4 => number .ge 0,
+  5 => number,
+  6 => 0..4,
+  7 => bool,
+  8 => number .ge 0,
+  9 => number .ge -1 .le 1, ; visual steering: +1 left, -1 right
+  * uint => any
+}
+
+configurable-driving-pursuer = {
+  0 => tstr .size (1..64), ; pursuer ID
+  1 => player-id,          ; current authoritative target
+  2 => configurable-driving-vec2,
+  3 => number,             ; heading
+  4 => number .ge 0,       ; speed
+  5 => number .ge -1 .le 1,
+  * uint => any
+}
+
+configurable-driving-chase = {
+  0 => 0 / 1,              ; active / captured
+  1 => number .ge 0,       ; team survival time
+  2 => number .ge 0,       ; nearest police distance
+  3 => bool,               ; reinforcement notice
+  ? 4 => player-id,        ; captured player
+  * uint => any
+}
+
+configurable-driving-event = configurable-driving-joined
+  / configurable-driving-left
+  / configurable-driving-collision
+  / configurable-driving-configuration
+  / configurable-driving-chase-captured
+configurable-driving-joined = { 0 => 0, 1 => player-id, * uint => any }
+configurable-driving-left = { 0 => 1, 1 => player-id, * uint => any }
+configurable-driving-collision = {
+  0 => 2,
+  1 => player-id,
+  ? 2 => player-id,
+  3 => bool,
+  * uint => any
+}
+
+configurable-driving-chase-captured = {
+  0 => 4,
+  1 => player-id,
+  2 => number .ge 0,
+  * uint => any
+}
+
+configurable-driving-configuration = {
+  0 => 3,
+  1 => uint .le 4294967295,
+  2 => tstr .size (1..64),
+  3 => tstr .size (1..64),
+  4 => tstr .size (1..64),
+  5 => 0 / 1,
+  * uint => any
+}
+
+configurable-driving-vec2 = [number, number]

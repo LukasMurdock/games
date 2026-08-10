@@ -18,6 +18,7 @@ export function createProductionDrivingConfig(world: DrivingWorldQuery): Authori
 export function createMultiplayerDrivingConfig(
   world: DrivingWorldQuery,
   mapId: string,
+  modeId: "cruise" | "chase" = PRODUCTION_DRIVING_COMPOSITION.modeId,
 ): AuthoritativeDrivingConfig {
   const spawns = createStartingGrid(world);
   for (const spawn of spawns) {
@@ -25,13 +26,14 @@ export function createMultiplayerDrivingConfig(
       throw new Error(`${mapId} multiplayer starting grid is not clear pavement.`);
     }
   }
+  const profileId = modeId === "chase" ? "aggressive" : PRODUCTION_DRIVING_COMPOSITION.profileId;
   return {
     world,
-    profile: DRIVING_PROFILES[PRODUCTION_DRIVING_COMPOSITION.profileId],
+    profile: DRIVING_PROFILES[profileId],
     controlMode: PRODUCTION_DRIVING_COMPOSITION.controlMode,
     mapId,
-    modeId: PRODUCTION_DRIVING_COMPOSITION.modeId,
-    profileId: PRODUCTION_DRIVING_COMPOSITION.profileId,
+    modeId,
+    profileId,
     spawns,
   };
 }

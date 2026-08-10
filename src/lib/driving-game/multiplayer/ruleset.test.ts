@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { describe, expect, it } from "vitest";
+import { DRIVING_PROFILES } from "../driving-profiles";
 import { GAME_MAPS } from "../maps";
 import { buildWorld } from "../world/build-world";
 import { createDrivingWorldQuery } from "../world/driving-world-query";
@@ -40,6 +41,15 @@ describe("production driving ruleset composition", () => {
       }
     }
     expect(createProductionDrivingConfig(world).spawns).toEqual(first);
+  });
+
+  it("selects aggressive production handling for multiplayer Chase", () => {
+    const chase = createMultiplayerDrivingConfig(world, "city-circuit", "chase");
+    expect(chase).toEqual(expect.objectContaining({
+      modeId: "chase",
+      profileId: "aggressive",
+      profile: DRIVING_PROFILES.aggressive,
+    }));
   });
 
   it("validates a clear starting grid on every registered map", () => {

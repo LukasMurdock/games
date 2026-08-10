@@ -241,6 +241,30 @@ async function testPublicDrivingMultiplayer(browserInstance) {
     undefined,
     { timeout: 10_000 },
   );
+  await host.click("#pause-button");
+  await host.selectOption(".multiplayer-mode", "chase");
+  await client.waitForFunction(
+    () => document.querySelector("#driving-game")?.getAttribute("data-game-mode") === "chase",
+    undefined,
+    { timeout: 20_000 },
+  );
+  await host.waitForFunction(
+    () => {
+      const button = document.querySelector("#pause-button");
+      return button instanceof HTMLButtonElement && !button.disabled;
+    },
+    undefined,
+    { timeout: 20_000 },
+  );
+  await host.click("#resume-driving");
+  await client.waitForFunction(
+    () => {
+      const hud = document.querySelector(".multiplayer-chase-hud");
+      return hud instanceof HTMLElement && !hud.hidden && hud.textContent?.includes("police 1");
+    },
+    undefined,
+    { timeout: 10_000 },
+  );
   const before = await host.locator("#game-canvas").screenshot();
   await client.keyboard.down("ArrowRight");
   await new Promise((resolve) => setTimeout(resolve, 700));
@@ -333,14 +357,25 @@ async function testMobileMultiplayerLayout(browserInstance) {
     const root = document.querySelector("#driving-game");
     const controls = document.querySelector(".touch-controls");
     const buttons = [...document.querySelectorAll(".touch-controls button")];
+    const controlsRect = controls?.getBoundingClientRect();
+    const diagnosticsRect = document.querySelector(".multiplayer-network-hud")?.getBoundingClientRect();
     return {
       capable: root?.getAttribute("data-touch-capable"),
       display: controls ? getComputedStyle(controls).display : "missing",
       visibleButtons: buttons.filter((button) => button.getBoundingClientRect().width > 0).length,
+      controlsTop: controlsRect?.top,
+      diagnosticsBottom: diagnosticsRect?.bottom,
     };
   });
-  if (touchControls.capable !== "true" || touchControls.display === "none" || touchControls.visibleButtons !== 3) {
-    throw new Error(`Mobile multiplayer controls are unavailable: ${JSON.stringify(touchControls)}`);
+  if (
+    touchControls.capable !== "true"
+    || touchControls.display === "none"
+    || touchControls.visibleButtons !== 3
+    || touchControls.controlsTop === undefined
+    || touchControls.diagnosticsBottom === undefined
+    || touchControls.diagnosticsBottom > touchControls.controlsTop - 8
+  ) {
+    throw new Error(`Mobile multiplayer controls or diagnostics are unsafe: ${JSON.stringify(touchControls)}`);
   }
 
   await page.setViewportSize({ width: 844, height: 390 });

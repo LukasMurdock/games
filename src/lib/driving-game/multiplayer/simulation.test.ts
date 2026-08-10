@@ -131,6 +131,54 @@ describe("production authoritative driving simulation", () => {
     expect(authoritativeDrivingSimulation.snapshot(state).paused).toBe(false);
   });
 
+  it("owns shared Chase police, capture, and round resets authoritatively", () => {
+    const state = authoritativeDrivingSimulation.create(config({
+      modeId: "chase",
+      mapId: "city-circuit",
+      profileId: "aggressive",
+    }));
+    authoritativeDrivingSimulation.addPlayer(state, "host");
+    let capture;
+    for (let index = 0; index < 600 && !capture; index++) {
+      capture = (authoritativeDrivingSimulation.tick(state, 1 / 60) ?? [])
+        .find((event) => event.type === "chase-captured");
+    }
+    expect(capture).toEqual(expect.objectContaining({
+      type: "chase-captured",
+      playerId: "host",
+    }));
+    const captured = authoritativeDrivingSimulation.snapshot(state);
+    expect(captured.modeId).toBe("chase");
+    expect(captured.pursuers).toHaveLength(1);
+    expect(captured.chase).toEqual(expect.objectContaining({
+      state: "captured",
+      capturedPlayerId: "host",
+    }));
+    for (let index = 0; index < 60; index++) authoritativeDrivingSimulation.tick(state, 1 / 60);
+    expect(authoritativeDrivingSimulation.snapshot(state).chase).toEqual(expect.objectContaining({
+      state: "active",
+      survivalTime: expect.any(Number),
+    }));
+  });
+
+  it("scales shared Chase reinforcements with connected players", () => {
+    const state = authoritativeDrivingSimulation.create(config({
+      modeId: "chase",
+      mapId: "city-circuit",
+      profileId: "aggressive",
+      spawns: [
+        { x: -8, z: 0, heading: 0 },
+        { x: 0, z: 0, heading: 0 },
+        { x: 8, z: 0, heading: 0 },
+      ],
+    }));
+    authoritativeDrivingSimulation.addPlayer(state, "one");
+    authoritativeDrivingSimulation.addPlayer(state, "two");
+    authoritativeDrivingSimulation.addPlayer(state, "three");
+    authoritativeDrivingSimulation.tick(state, 1 / 60);
+    expect(authoritativeDrivingSimulation.snapshot(state).pursuers).toHaveLength(2);
+  });
+
   it("resolves vehicle collisions authoritatively", () => {
     const state = authoritativeDrivingSimulation.create(config({
       spawns: [

@@ -7,6 +7,8 @@ import {
   type DrivingVehicleSnapshot,
 } from "../simulation/vehicle-simulation";
 import type { ControlMode, DriftPhase } from "../types";
+import { createPursuerSimulation } from "../modes/chase/pursuer-simulation";
+import { CHASE_TUNING } from "../modes/chase/tuning";
 import type { GameSimulation } from "../../../net/runtime/simulation";
 
 export type AuthoritativeDrivingConfig = {
@@ -41,8 +43,27 @@ export type AuthoritativeDrivingPlayer = {
   steering?: number;
 };
 
+export type AuthoritativeDrivingPursuer = {
+  pursuerId: string;
+  targetPlayerId: string;
+  position: [number, number];
+  heading: number;
+  speed: number;
+  steering: number;
+};
+
+export type AuthoritativeChaseSnapshot = {
+  state: "active" | "captured";
+  survivalTime: number;
+  nearestDistance: number;
+  reinforcements: boolean;
+  capturedPlayerId?: string;
+};
+
 export type AuthoritativeDrivingSnapshot = {
   players: AuthoritativeDrivingPlayer[];
+  pursuers?: AuthoritativeDrivingPursuer[];
+  chase?: AuthoritativeChaseSnapshot;
   configurationEpoch?: number;
   paused?: boolean;
   mapId?: string;
@@ -67,12 +88,29 @@ export type AuthoritativeDrivingEvent =
       modeId: string;
       profileId: string;
       controlMode: ControlMode;
-    };
+    }
+  | { type: "chase-captured"; playerId: string; survivalTime: number };
 
 type PlayerRecord = {
   vehicle: DrivingVehicleSimulation;
   spawnIndex: number;
   steering: number;
+};
+
+type PursuerRecord = {
+  simulation: ReturnType<typeof createPursuerSimulation>;
+  targetPlayerId: string;
+};
+
+type ChaseRuntimeState = {
+  state: "active" | "captured";
+  survivalTime: number;
+  stateTime: number;
+  captureGrace: number;
+  nearestDistance: number;
+  reinforcementNotice: number;
+  capturedPlayerId?: string;
+  pursuers: PursuerRecord[];
 };
 
 export type AuthoritativeDrivingState = {
@@ -85,6 +123,7 @@ export type AuthoritativeDrivingState = {
   paused: boolean;
   readyPlayers: Set<string>;
   awaitingReadiness: boolean;
+  chase: ChaseRuntimeState | null;
 };
 
 export const authoritativeDrivingSimulation: GameSimulation<
@@ -123,6 +162,7 @@ export const authoritativeDrivingSimulation: GameSimulation<
       paused: false,
       readyPlayers: new Set(),
       awaitingReadiness: false,
+      chase: config.modeId === "chase" ? createChaseState() : null,
     };
   },
 
@@ -141,6 +181,7 @@ export const authoritativeDrivingSimulation: GameSimulation<
       onResetRequested: () => vehicle.reset(),
     });
     state.players.set(playerId, { vehicle, spawnIndex, steering: 0 });
+    if (state.chase && state.players.size === 1) resetChaseRound(state);
     return [{ type: "joined", playerId }];
   },
 
@@ -150,6 +191,10 @@ export const authoritativeDrivingSimulation: GameSimulation<
     state.players.delete(playerId);
     state.readyPlayers.delete(playerId);
     insertSorted(state.availableSpawns, record.spawnIndex);
+    if (state.chase) {
+      state.chase.pursuers = state.chase.pursuers.filter((pursuer) => pursuer.targetPlayerId !== playerId);
+      if (state.players.size === 0) state.chase = createChaseState();
+    }
     return [{ type: "left", playerId }];
   },
 
@@ -169,8 +214,14 @@ export const authoritativeDrivingSimulation: GameSimulation<
 
   tick(state, dt) {
     if (state.paused) return;
+    if (state.chase?.state === "captured") {
+      state.chase.stateTime += dt;
+      if (state.chase.stateTime >= CHASE_TUNING.capturePresentationDuration) resetChaseRound(state);
+      return state.pendingEvents.splice(0);
+    }
     for (const record of state.players.values()) record.vehicle.update(dt);
     resolveVehicleCollisions(state);
+    if (state.chase) updateAuthoritativeChase(state, dt);
     return state.pendingEvents.splice(0);
   },
 
@@ -188,6 +239,26 @@ export const authoritativeDrivingSimulation: GameSimulation<
       modeId: state.config.modeId,
       profileId: state.config.profileId,
       controlMode: state.config.controlMode,
+      ...(state.chase ? {
+        pursuers: state.chase.pursuers.map((record, index) => {
+          const pursuer = record.simulation.snapshot();
+          return {
+            pursuerId: `police-${index}`,
+            targetPlayerId: record.targetPlayerId,
+            position: [pursuer.position.x, pursuer.position.z] as [number, number],
+            heading: pursuer.heading,
+            speed: pursuer.speed,
+            steering: pursuer.steering,
+          };
+        }),
+        chase: {
+          state: state.chase.state,
+          survivalTime: state.chase.survivalTime,
+          nearestDistance: state.chase.nearestDistance,
+          reinforcements: state.chase.reinforcementNotice > 0,
+          ...(state.chase.capturedPlayerId ? { capturedPlayerId: state.chase.capturedPlayerId } : {}),
+        },
+      } : {}),
     };
   },
 };
@@ -233,6 +304,8 @@ export function reconfigureAuthoritativeDriving(
   state.availableSpawns = config.spawns
     .map((_, index) => index)
     .filter((index) => !usedSpawns.has(index));
+  state.chase = config.modeId === "chase" ? createChaseState() : null;
+  if (state.chase && state.players.size > 0) resetChaseRound(state);
   return {
     type: "configuration" as const,
     configurationEpoch: state.configurationEpoch,
@@ -245,6 +318,126 @@ export function reconfigureAuthoritativeDriving(
 
 export function areAuthoritativeDrivingPlayersReady(state: AuthoritativeDrivingState) {
   return [...state.players.keys()].every((playerId) => state.readyPlayers.has(playerId));
+}
+
+function createChaseState(): ChaseRuntimeState {
+  return {
+    state: "active",
+    survivalTime: 0,
+    stateTime: 0,
+    captureGrace: CHASE_TUNING.captureGraceDuration,
+    nearestDistance: 17,
+    reinforcementNotice: 0,
+    pursuers: [],
+  };
+}
+
+function resetChaseRound(state: AuthoritativeDrivingState) {
+  if (!state.chase) return;
+  for (const record of state.players.values()) {
+    record.vehicle.reset();
+    record.steering = 0;
+  }
+  state.chase = createChaseState();
+  ensurePursuers(state, 1);
+}
+
+function updateAuthoritativeChase(state: AuthoritativeDrivingState, dt: number) {
+  const chase = state.chase;
+  if (!chase || state.players.size === 0) return;
+  chase.survivalTime += dt;
+  chase.captureGrace = Math.max(0, chase.captureGrace - dt);
+  chase.reinforcementNotice = Math.max(0, chase.reinforcementNotice - dt);
+  const elapsedPursuers = CHASE_TUNING.escalationTimes
+    .filter((threshold) => chase.survivalTime >= threshold).length;
+  const playerScale = Math.floor((state.players.size - 1) / 2);
+  const requestedPursuers = Math.min(6, elapsedPursuers + playerScale);
+  if (requestedPursuers > chase.pursuers.length) {
+    const previousCount = chase.pursuers.length;
+    ensurePursuers(state, requestedPursuers);
+    if (chase.pursuers.length > previousCount) {
+      chase.captureGrace = Math.max(chase.captureGrace, CHASE_TUNING.reinforcementCaptureGraceDuration);
+      chase.reinforcementNotice = 1.8;
+    }
+  }
+
+  const accuracy = smoothRamp(
+    chase.survivalTime,
+    CHASE_TUNING.accuracyRamp.startTime,
+    CHASE_TUNING.accuracyRamp.endTime,
+  );
+  chase.nearestDistance = Number.POSITIVE_INFINITY;
+  for (const pursuer of chase.pursuers) {
+    const targetEntry = selectPursuerTarget(state, pursuer);
+    if (!targetEntry) continue;
+    const [targetPlayerId, targetRecord] = targetEntry;
+    pursuer.targetPlayerId = targetPlayerId;
+    const target = chaseTarget(targetRecord);
+    const update = pursuer.simulation.update(dt, target, accuracy);
+    chase.nearestDistance = Math.min(chase.nearestDistance, update.distanceToTarget);
+    if (update.respawned) {
+      chase.captureGrace = Math.max(chase.captureGrace, CHASE_TUNING.respawnCaptureGraceDuration);
+    }
+    if (!update.targetCollision) continue;
+    targetRecord.vehicle.applyExternalCollision(update.targetCollision);
+    if (chase.captureGrace > 0) continue;
+    chase.state = "captured";
+    chase.stateTime = 0;
+    chase.capturedPlayerId = targetPlayerId;
+    state.pendingEvents.push({
+      type: "chase-captured",
+      playerId: targetPlayerId,
+      survivalTime: chase.survivalTime,
+    });
+    break;
+  }
+}
+
+function ensurePursuers(state: AuthoritativeDrivingState, count: number) {
+  const chase = state.chase;
+  if (!chase) return;
+  while (chase.pursuers.length < count) {
+    const targetEntry = [...state.players.entries()][chase.pursuers.length % state.players.size];
+    if (!targetEntry) return;
+    const [targetPlayerId, targetRecord] = targetEntry;
+    const simulation = createPursuerSimulation(state.config.world);
+    if (!simulation.resetBehind(chaseTarget(targetRecord), chase.pursuers.length)) return;
+    chase.pursuers.push({ simulation, targetPlayerId });
+  }
+}
+
+function selectPursuerTarget(state: AuthoritativeDrivingState, pursuer: PursuerRecord) {
+  const police = pursuer.simulation.snapshot().position;
+  const candidates = [...state.players.entries()].sort(([left], [right]) => left.localeCompare(right));
+  const current = state.players.get(pursuer.targetPlayerId);
+  if (current) {
+    const currentPosition = current.vehicle.snapshot().position;
+    const currentDistance = Math.hypot(currentPosition.x - police.x, currentPosition.z - police.z);
+    const nearest = candidates.reduce((best, candidate) => {
+      const position = candidate[1].vehicle.snapshot().position;
+      const candidateDistance = Math.hypot(position.x - police.x, position.z - police.z);
+      return candidateDistance < best.distance ? { entry: candidate, distance: candidateDistance } : best;
+    }, { entry: candidates[0], distance: Number.POSITIVE_INFINITY });
+    // Keep a target unless another player is materially closer, preventing visible target thrashing.
+    if (nearest.entry && nearest.distance + 8 < currentDistance) return nearest.entry;
+    return [pursuer.targetPlayerId, current] as [string, PlayerRecord];
+  }
+  return candidates[0];
+}
+
+function chaseTarget(record: PlayerRecord) {
+  const snapshot = record.vehicle.snapshot();
+  return {
+    position: snapshot.position,
+    velocity: snapshot.velocity,
+    heading: snapshot.heading,
+    speed: snapshot.speed,
+  };
+}
+
+function smoothRamp(value: number, start: number, end: number) {
+  const progress = Math.max(0, Math.min(1, (value - start) / Math.max(end - start, 0.001)));
+  return progress * progress * (3 - 2 * progress);
 }
 
 function resolveVehicleCollisions(state: AuthoritativeDrivingState) {

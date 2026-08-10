@@ -1,5 +1,6 @@
 import type {
   AuthoritativeDrivingPlayer,
+  AuthoritativeDrivingPursuer,
   AuthoritativeDrivingSnapshot,
 } from "./simulation";
 
@@ -146,6 +147,12 @@ export function interpolateSnapshot(
   return {
     ...configuration,
     players,
+    pursuers: interpolatePursuers(left.pursuers, right.pursuers, amount),
+    chase: left.chase && right.chase ? {
+      ...(amount < 0.5 ? left.chase : right.chase),
+      survivalTime: lerp(left.chase.survivalTime, right.chase.survivalTime, amount),
+      nearestDistance: lerp(left.chase.nearestDistance, right.chase.nearestDistance, amount),
+    } : configuration.chase,
   };
 }
 
@@ -162,11 +169,45 @@ function extrapolateSnapshot(
         player.position[1] + player.velocity[1] * seconds,
       ] as [number, number],
     })),
+    pursuers: snapshot.pursuers?.map((pursuer) => ({
+      ...clonePursuer(pursuer),
+      position: [
+        pursuer.position[0] + Math.sin(pursuer.heading) * pursuer.speed * seconds,
+        pursuer.position[1] + Math.cos(pursuer.heading) * pursuer.speed * seconds,
+      ],
+    })),
   };
 }
 
 function cloneSnapshot(snapshot: AuthoritativeDrivingSnapshot): AuthoritativeDrivingSnapshot {
-  return { ...snapshot, players: snapshot.players.map(clonePlayer) };
+  return {
+    ...snapshot,
+    players: snapshot.players.map(clonePlayer),
+    pursuers: snapshot.pursuers?.map(clonePursuer),
+    chase: snapshot.chase ? { ...snapshot.chase } : undefined,
+  };
+}
+function interpolatePursuers(
+  left: AuthoritativeDrivingPursuer[] | undefined,
+  right: AuthoritativeDrivingPursuer[] | undefined,
+  amount: number,
+) {
+  if (!left || !right) return amount < 0.5 ? left?.map(clonePursuer) : right?.map(clonePursuer);
+  const rightById = new Map(right.map((pursuer) => [pursuer.pursuerId, pursuer]));
+  return left.flatMap((pursuer) => {
+    const next = rightById.get(pursuer.pursuerId);
+    if (!next) return amount < 1 ? [clonePursuer(pursuer)] : [];
+    return [{
+      ...(amount < 0.5 ? pursuer : next),
+      position: lerpVec2(pursuer.position, next.position, amount),
+      heading: lerpAngle(pursuer.heading, next.heading, amount),
+      speed: lerp(pursuer.speed, next.speed, amount),
+      steering: lerp(pursuer.steering, next.steering, amount),
+    }];
+  });
+}
+function clonePursuer(pursuer: AuthoritativeDrivingPursuer): AuthoritativeDrivingPursuer {
+  return { ...pursuer, position: [...pursuer.position] };
 }
 function clonePlayer(player: AuthoritativeDrivingPlayer): AuthoritativeDrivingPlayer {
   return {
