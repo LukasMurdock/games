@@ -42,6 +42,21 @@ describe("driving snapshot interpolation", () => {
     expect(Math.abs(result.players[0].heading)).toBeCloseTo(Math.PI);
   });
 
+  it("does not move the render clock backward when a snapshot arrives late", () => {
+    let now = 1_000;
+    const buffer = new DrivingSnapshotBuffer({
+      now: () => now,
+      interpolationDelaySeconds: 0,
+    });
+    buffer.push(0, { players: [player("one", [0, 0])] });
+    now = 1_070;
+    const beforeLatePacket = buffer.sample()?.players[0].position[0] ?? 0;
+    now = 1_080;
+    buffer.push(3, { players: [player("one", [3, 0])] });
+    const afterLatePacket = buffer.sample()?.players[0].position[0] ?? 0;
+    expect(afterLatePacket).toBeGreaterThanOrEqual(beforeLatePacket);
+  });
+
   it("bounds extrapolation when snapshots are delayed", () => {
     let now = 1_000;
     const buffer = new DrivingSnapshotBuffer({

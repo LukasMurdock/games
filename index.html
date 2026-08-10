@@ -78,7 +78,7 @@
           </div>
           <div class="intro-actions">
             <button id="start-driving" type="button">Start driving <span aria-hidden="true">→</span></button>
-            <a class="multiplayer-link" href="/network-test/?game=driving">Drive with friends</a>
+            <a class="multiplayer-link" href="/?multiplayer=host">Drive with friends</a>
           </div>
           <div class="key-guide" aria-label="Keyboard controls">
             <span><kbd>← →</kbd> Steer · tap twice for hard turn</span>
@@ -92,6 +92,8 @@
           </div>
         </div>
       </section>
+
+      <section id="multiplayer-overlay" class="multiplayer-overlay" hidden aria-live="polite"></section>
 
       <section id="pause-overlay" class="pause-overlay" aria-label="Game paused" aria-hidden="true">
         <div class="pause-card">

@@ -1,6 +1,6 @@
 # Multiplayer architecture
 
-Status: GameNet/Direct Invite kernel proven; production driving simulation integrated headlessly with HostRuntime and ClientRuntime.
+Status: production Direct Invite multiplayer integrated as a separate public Cruise path; existing local modes remain unchanged.
 
 ## Decision
 
@@ -85,7 +85,7 @@ interface GameSimulation<Input, State> {
 
 The original single-player controller mixed mechanics, Three.js, audio, effects, browser input timing, and render timing. The ownership inversion is complete: deterministic control timing lives in `core/`; map access crosses a numeric `DrivingWorldQuery`; `DrivingVehicleSimulation` exclusively owns plain numeric handling state, collision response, and deterministic time-step updates; visual/audio/effect mutation lives in `PlayerPresentation`; and the browser composes an explicit `LocalDrivingSession`. `PlayerController` is now only a compatibility adapter between detached simulation state and the existing local presentation API. Existing local cameras, modes, and presentation remain unchanged.
 
-The driving conformance path now uses the production replacement: `AuthoritativeDrivingSimulation` creates one extracted production vehicle core per admitted player, maps bounded client control intent, assigns deterministic non-overlapping City Circuit spawns, resolves vehicle collisions authoritatively, and publishes presentation-complete snapshots through `HostRuntime` and `ClientRuntime`. Clients render from a bounded tick-based interpolation buffer, and a render-only `VehicleView`/fleet owns remote car meshes without simulation authority. The intentionally small pilot schema remains only as a protocol fixture.
+The driving conformance path and the public “Drive with friends” composition now use the production replacement: `AuthoritativeDrivingSimulation` creates one extracted production vehicle core per admitted player, maps bounded client control intent, assigns deterministic non-overlapping City Circuit spawns, resolves vehicle collisions authoritatively, and publishes presentation-complete snapshots through `HostRuntime` and `ClientRuntime`. Clients render from a bounded tick-based interpolation buffer with a stable host-tick clock estimate so packet-arrival jitter cannot move render time backward, and a render-only `VehicleView`/fleet owns remote car meshes without simulation authority. The intentionally small pilot schema remains only as a protocol fixture.
 
 ### Protocol
 
@@ -168,6 +168,7 @@ Version-one lifecycle rules:
 - clients send sequenced input intent;
 - the host ticks the simulation and broadcasts snapshots;
 - disconnecting removes that player;
+- the host may pause/resume authoritative advancement without accumulating catch-up time;
 - losing the host ends the session;
 - reconnect and host migration are deferred.
 

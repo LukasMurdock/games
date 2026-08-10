@@ -109,6 +109,7 @@ try {
   await Promise.all(clients.map(({ context }) => context.close()));
   await hostContext.close();
   await testDrivingPilot(browser);
+  await testPublicDrivingMultiplayer(browser);
   await testSinglePlayerDriving(browser);
 } catch (error) {
   if (serverOutput) console.error(serverOutput);
@@ -116,6 +117,89 @@ try {
 } finally {
   await browser?.close();
   server.kill("SIGTERM");
+}
+
+async function testPublicDrivingMultiplayer(browserInstance) {
+  const hostContext = await browserInstance.newContext();
+  const clientContext = await browserInstance.newContext();
+  const host = await hostContext.newPage();
+  const client = await clientContext.newPage();
+  await host.goto(`http://127.0.0.1:${port}/?multiplayer=host`);
+  await host.waitForSelector(".multiplayer-host-controls");
+  await host.fill(".multiplayer-host-controls input", "Jamie");
+  await host.click(".multiplayer-host-controls > button");
+  const inviteButton = host.locator(".multiplayer-slot button[data-url]");
+  await inviteButton.waitFor({ state: "visible", timeout: 20_000 });
+  const inviteUrl = await inviteButton.getAttribute("data-url");
+  if (!inviteUrl) throw new Error("Public driving host did not create an invite.");
+  await client.goto(inviteUrl);
+  const responseOutput = client.locator("#multiplayer-overlay output");
+  await responseOutput.waitFor({ state: "visible", timeout: 20_000 });
+  const responseUrl = await responseOutput.textContent();
+  if (!responseUrl?.includes("#response=")) throw new Error("Public driving client did not create a response.");
+  const landing = await hostContext.newPage();
+  await landing.goto(responseUrl);
+  await Promise.all([host, client].map((page) => page.waitForFunction(
+    () => document.querySelector(".multiplayer-player-count")?.textContent?.startsWith("2 players"),
+    undefined,
+    { timeout: 20_000 },
+  )));
+  if (!landing.isClosed()) await landing.close();
+  await host.click("#pause-button");
+  await host.waitForFunction(
+    () => document.querySelector(".multiplayer-status")?.textContent?.includes("paused by host"),
+  );
+  if (await host.isHidden("#pause-button")) throw new Error("Multiplayer host pause control is hidden.");
+  await new Promise((resolve) => setTimeout(resolve, 250));
+  await host.click("#pause-button");
+  await host.waitForFunction(
+    () => document.querySelector(".multiplayer-status")?.textContent?.includes("resumed"),
+  );
+  const before = await host.locator("#game-canvas").screenshot();
+  await client.keyboard.down("ArrowRight");
+  await new Promise((resolve) => setTimeout(resolve, 700));
+  await client.keyboard.up("ArrowRight");
+  const after = await host.locator("#game-canvas").screenshot();
+  if (before.equals(after)) throw new Error("Public multiplayer driving presentation did not advance.");
+  await client.click(".multiplayer-leave");
+  await host.waitForFunction(
+    () => document.querySelector(".multiplayer-player-count")?.textContent?.startsWith("1 player"),
+    undefined,
+    { timeout: 10_000 },
+  );
+
+  await host.fill(".multiplayer-host-controls input", "Taylor");
+  await host.click(".multiplayer-host-controls > button");
+  await host.waitForFunction(
+    () => document.querySelectorAll(".multiplayer-slot button[data-url]").length === 2,
+    undefined,
+    { timeout: 20_000 },
+  );
+  const secondInviteButton = host.locator(".multiplayer-slot button[data-url]").last();
+  await secondInviteButton.waitFor({ state: "visible", timeout: 20_000 });
+  const secondInviteUrl = await secondInviteButton.getAttribute("data-url");
+  if (!secondInviteUrl) throw new Error("Host could not replace a departed player's invite slot.");
+  await client.goto(secondInviteUrl);
+  const secondResponseOutput = client.locator("#multiplayer-overlay output");
+  await secondResponseOutput.waitFor({ state: "visible", timeout: 20_000 });
+  const secondResponseUrl = await secondResponseOutput.textContent();
+  if (!secondResponseUrl) throw new Error("Replacement client did not create a response.");
+  const secondLanding = await hostContext.newPage();
+  await secondLanding.goto(secondResponseUrl);
+  await client.waitForFunction(
+    () => document.querySelector(".multiplayer-player-count")?.textContent?.startsWith("2 players"),
+    undefined,
+    { timeout: 20_000 },
+  );
+  if (!secondLanding.isClosed()) await secondLanding.close();
+  await host.click(".multiplayer-leave");
+  await client.waitForFunction(
+    () => document.querySelector(".multiplayer-status")?.textContent?.includes("host ended"),
+    undefined,
+    { timeout: 10_000 },
+  );
+  await Promise.all([hostContext.close(), clientContext.close()]);
+  console.log("Public driving multiplayer passed: invites, two cars, isolated leave, replacement, and host close.");
 }
 
 async function testSinglePlayerDriving(browserInstance) {

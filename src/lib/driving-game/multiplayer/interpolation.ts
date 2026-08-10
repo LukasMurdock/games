@@ -24,6 +24,7 @@ export class DrivingSnapshotBuffer {
   private readonly maximumSnapshots: number;
   private readonly now: () => number;
   private readonly snapshots: BufferedSnapshot[] = [];
+  private clockOrigin: number | null = null;
 
   constructor(options: DrivingInterpolationOptions = {}) {
     this.tickRate = options.tickRate ?? 60;
@@ -42,10 +43,15 @@ export class DrivingSnapshotBuffer {
 
   clear() {
     this.snapshots.length = 0;
+    this.clockOrigin = null;
   }
 
   push(tick: number, snapshot: AuthoritativeDrivingSnapshot, receivedAt = this.now()) {
     if (!Number.isSafeInteger(tick) || tick < 0 || !Number.isFinite(receivedAt)) return;
+    const observedOrigin = receivedAt - tick / this.tickRate * 1000;
+    this.clockOrigin = this.clockOrigin === null
+      ? observedOrigin
+      : Math.min(this.clockOrigin, observedOrigin);
     const existing = this.snapshots.findIndex((entry) => entry.tick === tick);
     const entry = { tick, receivedAt, snapshot: cloneSnapshot(snapshot) };
     if (existing >= 0) this.snapshots[existing] = entry;
@@ -60,8 +66,8 @@ export class DrivingSnapshotBuffer {
   sample(now = this.now()): AuthoritativeDrivingSnapshot | null {
     const latest = this.snapshots.at(-1);
     if (!latest) return null;
-    const elapsedTicks = Math.max(0, now - latest.receivedAt) / 1000 * this.tickRate;
-    const targetTick = latest.tick + elapsedTicks - this.delayTicks;
+    const targetTick = (now - (this.clockOrigin ?? latest.receivedAt)) / 1000 * this.tickRate
+      - this.delayTicks;
     const first = this.snapshots[0];
     if (targetTick <= first.tick) return cloneSnapshot(first.snapshot);
 
