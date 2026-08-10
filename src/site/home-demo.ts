@@ -3,11 +3,11 @@ import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
-import { createCarAudio, type CarAudio } from "./lib/driving-game/audio/car-audio";
-import { DRIVING_PROFILES } from "./lib/driving-game/driving-profiles";
-import { createDrivingVehicleSimulation } from "./lib/driving-game/simulation/vehicle-simulation";
-import type { DriftPhase } from "./lib/driving-game/types";
-import { createCar } from "./lib/driving-game/vehicle/create-car";
+import { createCarAudio, type CarAudio } from "../games/drive/audio/car-audio";
+import { DRIVING_PROFILES } from "../games/drive/driving-profiles";
+import { createDrivingVehicleSimulation } from "../games/drive/simulation/vehicle-simulation";
+import type { DriftPhase } from "../games/drive/types";
+import { createCar } from "../games/drive/vehicle/create-car";
 
 const DURATION = 40;
 const PRODUCTION_DRIVE_TRACE = buildProductionDriveTrace();

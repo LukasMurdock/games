@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="description" content="A private production-maneuver sound design lab for the driving game." />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="theme-color" content="#0c1210" />
+    <title>Drive Maneuver Sound Lab</title>
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <p>Production simulation · sound design</p>
+        <h1>Maneuver Lab</h1>
+      </div>
+      <nav aria-label="Lab links">
+        <a href="/drive/labs/dyno/">Transmission Dyno</a>
+        <a href="/drive/">Return to drive</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="scenario-panel panel" aria-labelledby="scenario-heading">
+        <div class="section-heading">
+          <div><span>Real game inputs</span><h2 id="scenario-heading">Maneuver</h2></div>
+          <div class="lab-selects">
+            <label>Engine
+              <select id="engine"></select>
+            </label>
+            <label>Character
+              <select id="profile">
+                <option value="aggressive" selected>Aggressive / Chase</option>
+                <option value="loose">Cruise / Loose</option>
+              </select>
+            </label>
+          </div>
+        </div>
+        <div id="scenario-list" class="scenario-list"></div>
+        <p id="scenario-description" class="scenario-description"></p>
+        <dl class="trace-facts">
+          <div><dt>Simulation</dt><dd>Production core</dd></div>
+          <div><dt>Engine model</dt><dd id="engine-model">Turbo I6</dd></div>
+          <div><dt>Provenance</dt><dd id="engine-provenance">Reference-derived</dd></div>
+          <div><dt>Trace rate</dt><dd>120 Hz</dd></div>
+          <div><dt>Audio tuning</dt><dd id="tuning-source">Dyno defaults</dd></div>
+        </dl>
+      </section>
+
+      <section class="stage panel" aria-labelledby="stage-heading">
+        <div class="section-heading stage-heading">
+          <div><span>Top-down evidence</span><h2 id="stage-heading">Vehicle path</h2></div>
+          <div class="transport">
+            <button id="start-audio" type="button">Start sound</button>
+            <button id="reload-tuning" type="button">Reload tuning</button>
+            <div class="layer-toggle" role="group" aria-label="Audio layer isolation">
+              <button type="button" data-audio-isolation="mix" aria-pressed="true">Full mix</button>
+              <button type="button" data-audio-isolation="engine" aria-pressed="false">Engine only</button>
+              <button type="button" data-audio-isolation="tires" aria-pressed="false">Tires only</button>
+            </div>
+            <button id="play-pause" type="button">Play</button>
+            <button id="replay" type="button">Replay</button>
+            <label class="loop-toggle"><input id="loop" type="checkbox" /> Loop</label>
+          </div>
+        </div>
+
+        <div class="telemetry" aria-live="polite">
+          <div><span>Time</span><strong id="time-readout">0.00</strong></div>
+          <div><span>Segment</span><strong id="segment-readout">Launch</strong></div>
+          <div><span>Speed</span><strong id="speed-readout">0.0</strong></div>
+          <div><span>Gear</span><strong id="gear-readout">1</strong></div>
+          <div><span>RPM</span><strong id="rpm-readout">900</strong></div>
+          <div><span>Slip</span><strong id="slip-readout">0.0°</strong></div>
+          <div><span>Load</span><strong id="load-readout">0%</strong></div>
+          <div><span>Phase</span><strong id="phase-readout">Grip</strong></div>
+        </div>
+
+        <figure class="path-figure">
+          <canvas id="path-canvas" width="1080" height="620" aria-label="Top-down production maneuver trace"></canvas>
+          <figcaption><span>Chassis and velocity vectors</span><span>Grip · breakaway · sustain · transition · recovery</span></figcaption>
+        </figure>
+
+        <div id="segment-track" class="segment-track" aria-hidden="true"></div>
+        <label class="timeline">
+          <span>Timeline <output id="timeline-output">0.00 / 5.00</output></span>
+          <input id="timeline" type="range" min="0" max="5" step="0.008333" value="0" />
+        </label>
+      </section>
+
+      <section class="audio-panel panel" aria-labelledby="audio-heading">
+        <div class="section-heading">
+          <div><span>Production CarAudio</span><h2 id="audio-heading">Sound response</h2></div>
+          <button id="copy-trace" type="button">Copy trace JSON</button>
+        </div>
+        <figure>
+          <canvas id="spectrogram" width="1080" height="260" aria-label="Live maneuver spectrogram"></canvas>
+          <figcaption><span>50 Hz–10 kHz · logarithmic</span><span>Newest at right</span></figcaption>
+        </figure>
+        <figure>
+          <canvas id="telemetry-chart" width="1080" height="260" aria-label="Speed, slip, and steering over the maneuver"></canvas>
+          <figcaption class="legend"><span class="speed-key">Speed</span><span class="slip-key">Slip</span><span class="steer-key">Steering</span></figcaption>
+        </figure>
+      </section>
+
+      <section class="events panel" aria-labelledby="events-heading">
+        <div class="section-heading">
+          <div><span>Audible landmarks</span><h2 id="events-heading">Run events</h2></div>
+          <button id="clear-events" type="button">Clear</button>
+        </div>
+        <ol id="event-log"></ol>
+      </section>
+    </main>
+    <script type="module" src="/src/games/drive/labs/maneuver-entry.ts"></script>
+  </body>
+</html>

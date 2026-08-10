@@ -27,11 +27,11 @@ The current separation is good: maps describe space, `buildWorld` owns runtime s
 
 Relevant implementation points:
 
-- Current maps are literal arrays of roads, lots, buildings, trees, lights, and barriers in [maps/types.ts](/Users/lukasmurdock/Documents/GitHub/LukasMurdock.github.io/src/lib/driving-game/maps/types.ts:1).
-- World creation and all spatial queries live in [build-world.ts](/Users/lukasmurdock/Documents/GitHub/LukasMurdock.github.io/src/lib/driving-game/world/build-world.ts:31).
-- Map replacement destroys the old world before synchronously building the new one in [runtime.ts](/Users/lukasmurdock/Documents/GitHub/LukasMurdock.github.io/src/lib/driving-game/runtime.ts:298).
-- The player queries pavement once per update and collision once per movement substep in [player-controller.ts](/Users/lukasmurdock/Documents/GitHub/LukasMurdock.github.io/src/lib/driving-game/player/player-controller.ts:188).
-- Each pursuer does the same and uses direct predicted pursuit plus post-contact tangent selection in [pursuer.ts](/Users/lukasmurdock/Documents/GitHub/LukasMurdock.github.io/src/lib/driving-game/modes/chase/pursuer.ts:100).
+- Current maps are literal arrays of roads, lots, buildings, trees, lights, and barriers in [types.ts](types.ts).
+- World creation and all spatial queries live in [build-world.ts](../world/build-world.ts).
+- Map replacement destroys the old world before synchronously building the new one in [runtime.ts](../runtime.ts).
+- The player queries pavement once per update and collision once per movement substep in [player-controller.ts](../player/player-controller.ts).
+- Each pursuer does the same and uses direct predicted pursuit plus post-contact tangent selection in [pursuer.ts](../modes/chase/pursuer.ts).
 
 ## Current content size
 

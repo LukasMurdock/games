@@ -1,13 +1,13 @@
-import "./styles/dyno.css";
-import { createCarAudio, type CarAudio } from "./lib/driving-game/audio/car-audio";
+import "../styles/dyno.css";
+import { createCarAudio, type CarAudio } from "../audio/car-audio";
 import {
   cloneTransmissionTuning,
   DEFAULT_TRANSMISSION_TUNING,
   type TransmissionCharacterTuning,
   type TransmissionTuning,
-} from "./lib/driving-game/audio/transmission-tuning";
-import { DRIVING_PROFILES } from "./lib/driving-game/driving-profiles";
-import type { DriftPhase } from "./lib/driving-game/types";
+} from "../audio/transmission-tuning";
+import { DRIVING_PROFILES } from "../driving-profiles";
+import type { DriftPhase } from "../types";
 
 const STORAGE_KEY = "driving-game:dyno-tuning:v2";
 const element = <T extends HTMLElement>(selector: string) => {

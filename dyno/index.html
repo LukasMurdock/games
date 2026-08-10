@@ -2,137 +2,17 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="description" content="A private transmission and engine tuning surface for the driving game." />
     <meta name="robots" content="noindex, nofollow" />
-    <meta name="theme-color" content="#171a17" />
-    <title>Drive Dyno</title>
+    <meta http-equiv="refresh" content="0;url=/drive/labs/dyno/" />
+    <title>Drive Dyno moved</title>
   </head>
   <body>
-    <header class="topbar">
-      <div>
-        <p>Internal tuning surface</p>
-        <h1>Drive Dyno</h1>
-      </div>
-      <nav aria-label="Tuning links">
-        <a href="/maneuver-lab/">Maneuver Lab</a>
-        <a href="/drive/">Return to drive</a>
-      </nav>
-    </header>
-
-    <main>
-      <section class="monitor panel">
-        <div class="section-heading">
-          <div>
-            <span>Live output</span>
-            <h2>Engine room</h2>
-          </div>
-          <div class="transport">
-            <button id="start-audio" type="button">Start audio</button>
-            <button id="run-pull" type="button">Run pull</button>
-            <button id="reset-run" type="button">Reset</button>
-          </div>
-        </div>
-
-        <div class="telemetry" aria-live="polite">
-          <div><span>Speed</span><strong id="speed-readout">0.0</strong></div>
-          <div><span>Gear</span><strong id="gear-readout">1</strong></div>
-          <div><span>RPM</span><strong id="rpm-readout">900</strong></div>
-          <div><span>Load</span><strong id="load-readout">0%</strong></div>
-          <div><span>Spool</span><strong id="spool-readout">0%</strong></div>
-          <div><span>Phase</span><strong id="phase-readout">Grip</strong></div>
-        </div>
-
-        <figure class="scope">
-          <canvas id="spectrogram" width="960" height="320" aria-label="Live logarithmic engine spectrogram"></canvas>
-          <figcaption>
-            <span>Log scale · 50 Hz–10 kHz</span><span>Live spectrogram · newest at right</span>
-          </figcaption>
-        </figure>
-
-        <div class="run-controls controls-grid">
-          <label>
-            <span>Character</span>
-            <select id="profile">
-              <option value="loose">Cruise / Loose</option>
-              <option value="aggressive" selected>Aggressive / Chase</option>
-            </select>
-          </label>
-          <label class="range-control">
-            <span>Speed <output data-output-for="speed">0.0</output></span>
-            <input id="speed" type="range" min="0" max="35" step="0.1" value="0" />
-          </label>
-          <label class="range-control">
-            <span>Throttle <output data-output-for="throttle">100%</output></span>
-            <input id="throttle" type="range" min="0" max="1" step="0.01" value="1" />
-          </label>
-          <label class="range-control">
-            <span>Pull acceleration <output data-output-for="acceleration">19.5</output></span>
-            <input id="acceleration" type="range" min="4" max="30" step="0.5" value="19.5" />
-          </label>
-          <label class="range-control">
-            <span>Slip angle <output data-output-for="slip">28°</output></span>
-            <input id="slip" type="range" min="0" max="55" step="1" value="28" />
-          </label>
-          <div class="toggles" aria-label="Dyno state toggles">
-            <label><input id="auto-pull" type="checkbox" /> Auto pull</label>
-            <label><input id="drift" type="checkbox" /> Drift</label>
-            <label><input id="braking" type="checkbox" /> Braking</label>
-            <label><input id="reverse" type="checkbox" /> Reverse</label>
-            <label><input id="boost" type="checkbox" /> Exit boost</label>
-          </div>
-        </div>
-      </section>
-
-      <aside class="tuning panel">
-        <div class="section-heading">
-          <div>
-            <span>Live parameters</span>
-            <h2>Transmission</h2>
-          </div>
-          <button id="restore-defaults" type="button">Defaults</button>
-        </div>
-
-        <details open>
-          <summary>Gear boundaries</summary>
-          <div id="ratio-controls" class="control-stack"></div>
-        </details>
-        <details>
-          <summary>RPM floors and ceiling</summary>
-          <div id="rpm-controls" class="control-stack"></div>
-        </details>
-        <details>
-          <summary>Shift event</summary>
-          <div id="shift-controls" class="control-stack"></div>
-        </details>
-        <details>
-          <summary>Drift downshift</summary>
-          <div id="drift-controls" class="control-stack"></div>
-        </details>
-
-        <div class="exchange">
-          <label for="tuning-json">Tuning JSON</label>
-          <textarea id="tuning-json" rows="10" spellcheck="false"></textarea>
-          <div>
-            <button id="apply-json" type="button">Apply JSON</button>
-            <button id="copy-json" type="button">Copy settings</button>
-            <button id="copy-session" type="button">Copy session</button>
-          </div>
-          <p id="exchange-status" aria-live="polite"></p>
-        </div>
-      </aside>
-
-      <section class="events panel">
-        <div class="section-heading">
-          <div>
-            <span>Shared evidence</span>
-            <h2>Event log</h2>
-          </div>
-          <button id="clear-events" type="button">Clear</button>
-        </div>
-        <ol id="event-log"></ol>
-      </section>
-    </main>
-    <script type="module" src="/src/dyno.ts"></script>
+    <p>The Drive Dyno moved to <a href="/drive/labs/dyno/">/drive/labs/dyno/</a>.</p>
+    <script>
+      const target = new URL("/drive/labs/dyno/", window.location.origin);
+      target.search = window.location.search;
+      target.hash = window.location.hash;
+      window.location.replace(target);
+    </script>
   </body>
 </html>

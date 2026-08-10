@@ -17,8 +17,10 @@ export default defineConfig({
           input: {
             home: resolve(import.meta.dirname, "index.html"),
             drive: resolve(import.meta.dirname, "drive/index.html"),
-            dyno: resolve(import.meta.dirname, "dyno/index.html"),
-            maneuverLab: resolve(import.meta.dirname, "maneuver-lab/index.html"),
+            driveDyno: resolve(import.meta.dirname, "drive/labs/dyno/index.html"),
+            driveManeuverLab: resolve(import.meta.dirname, "drive/labs/maneuvers/index.html"),
+            legacyDyno: resolve(import.meta.dirname, "dyno/index.html"),
+            legacyManeuverLab: resolve(import.meta.dirname, "maneuver-lab/index.html"),
             networkTest: resolve(import.meta.dirname, "network-test/index.html"),
           },
         },

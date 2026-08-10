@@ -1,10 +1,10 @@
-import "./styles/drive.css";
+import "./styles/game.css";
 import {
   DEFAULT_GAME_MAP_ID,
   GAME_MAPS,
   isGameMapId,
   startDrivingGame,
-} from "./lib/driving-game";
+} from "./index";
 
 const mapSelects = document.querySelectorAll<HTMLElement>(".map-select");
 for (const mapSelect of mapSelects) {
@@ -36,7 +36,7 @@ async function startSelectedDrivingMode(gameRoot: HTMLElement) {
   const searchParams = new URLSearchParams(window.location.search);
   const multiplayerMode = searchParams.get("multiplayer");
   if (multiplayerMode === "host" || directFragment) {
-    const multiplayer = await import("./lib/driving-game/multiplayer/browser-runtime");
+    const multiplayer = await import("./multiplayer/browser-runtime");
     if (multiplayerMode === "host") {
       await multiplayer.startHostedDrivingGame(gameRoot);
       return;

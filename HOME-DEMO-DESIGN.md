@@ -238,9 +238,9 @@ Keep the demo separate from the game runtime:
 ```text
 index.html              Homepage demo
 drive/index.html        Driving game markup
-src/demo.ts             Demo timeline and rendering
-src/styles/demo.css     Demo presentation and final actions
-src/drive.ts            Existing game entry
+src/site/home-demo.ts           Demo timeline and rendering
+src/site/home.css               Demo presentation and final actions
+src/games/drive/entry.ts        Drive game entry
 ```
 
 The demo may reuse focused game components such as the car geometry, but it should not initialize a complete playable map. A purpose-built scene will load faster and provide tighter control over choreography, materials, and post-processing.
@@ -267,7 +267,7 @@ Moving the game affects more than the root HTML file.
 1. Move or reproduce the current game markup at `drive/index.html`.
 2. Add both the homepage and drive page to the Vite build inputs.
 3. Change the “Drive with friends” link to `/drive/?multiplayer=host`.
-4. Change generated invite and response URLs in `src/lib/driving-game/multiplayer/browser-runtime.ts` to use `/drive/`.
+4. Change generated invite and response URLs in `src/games/drive/multiplayer/browser-runtime.ts` to use `/drive/`.
 5. Change the multiplayer leave destination to `/drive/`.
 6. Change Dyno’s “Return to drive” link to `/drive/`.
 7. Update route references in project documentation and browser tests.

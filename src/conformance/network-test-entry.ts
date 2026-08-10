@@ -1,15 +1,15 @@
-import "./styles/network-test.css";
+import "./network-test.css";
 import * as THREE from "three";
-import { DrivingSnapshotBuffer } from "./lib/driving-game/multiplayer/interpolation";
+import { DrivingSnapshotBuffer } from "../games/drive/multiplayer/interpolation";
 import {
   PRODUCTION_DRIVING_GAME_ID,
   PRODUCTION_DRIVING_RULESET_ID,
   productionDrivingPayloadCodec,
-} from "./lib/driving-game/multiplayer/protocol";
+} from "../games/drive/multiplayer/protocol";
 import {
   PRODUCTION_DRIVING_COMPOSITION,
   createProductionDrivingConfig,
-} from "./lib/driving-game/multiplayer/ruleset";
+} from "../games/drive/multiplayer/ruleset";
 import {
   authoritativeDrivingSimulation,
   type AuthoritativeDrivingConfig,
@@ -17,12 +17,12 @@ import {
   type AuthoritativeDrivingInput,
   type AuthoritativeDrivingSnapshot,
   type AuthoritativeDrivingState,
-} from "./lib/driving-game/multiplayer/simulation";
-import { GAME_MAPS } from "./lib/driving-game/maps";
-import { createDrivingWorldQuery } from "./lib/driving-game/world/driving-world-query";
-import { buildWorld } from "./lib/driving-game/world/build-world";
-import type { WorldRuntime } from "./lib/driving-game/world/types";
-import { movingCirclesPayloadCodec } from "./conformance/moving-circles/protocol";
+} from "../games/drive/multiplayer/simulation";
+import { GAME_MAPS } from "../games/drive/maps";
+import { createDrivingWorldQuery } from "../games/drive/world/driving-world-query";
+import { buildWorld } from "../games/drive/world/build-world";
+import type { WorldRuntime } from "../games/drive/world/types";
+import { movingCirclesPayloadCodec } from "./moving-circles/protocol";
 import {
   movingCirclesSimulation,
   type MovingCirclesConfig,
@@ -30,37 +30,37 @@ import {
   type MovingCirclesInput,
   type MovingCirclesSnapshot,
   type MovingCirclesState,
-} from "./conformance/moving-circles/simulation";
-import { DirectInviteCodec } from "./net/invite/codec";
+} from "./moving-circles/simulation";
+import { DirectInviteCodec } from "../net/invite/codec";
 import {
   createDirectUrl,
   decodeDirectFragment,
   encodeInviteFragment,
   encodeResponseFragment,
-} from "./net/invite/fragment";
+} from "../net/invite/fragment";
 import {
   DirectResponseReceiver,
   handoffDirectResponse,
-} from "./net/invite/handoff";
+} from "../net/invite/handoff";
 import {
   createDirectInvite,
   createDirectResponse,
   generateDirectSessionId,
-} from "./net/invite/proof";
-import { DirectInviteSlot } from "./net/invite/slot";
-import type { DirectInvite, DirectResponse } from "./net/invite/types";
-import { GameNetCodec } from "./net/protocol/codec";
-import type { GamePayloadCodec } from "./net/protocol/messages";
-import { ClientRuntime } from "./net/runtime/client";
-import { HostRuntime } from "./net/runtime/host";
-import type { GameSimulation } from "./net/runtime/simulation";
-import { createMemoryPeerPair } from "./net/transport/memory";
-import type { PeerConnection } from "./net/transport/peer";
+} from "../net/invite/proof";
+import { DirectInviteSlot } from "../net/invite/slot";
+import type { DirectInvite, DirectResponse } from "../net/invite/types";
+import { GameNetCodec } from "../net/protocol/codec";
+import type { GamePayloadCodec } from "../net/protocol/messages";
+import { ClientRuntime } from "../net/runtime/client";
+import { HostRuntime } from "../net/runtime/host";
+import type { GameSimulation } from "../net/runtime/simulation";
+import { createMemoryPeerPair } from "../net/transport/memory";
+import type { PeerConnection } from "../net/transport/peer";
 import {
   WebRTCPeerConnection,
   type WebRTCPeerRole,
   type WebRTCPeerStatus,
-} from "./net/transport/webrtc";
+} from "../net/transport/webrtc";
 
 const ICE_SERVERS: RTCIceServer[] = [
   { urls: "stun:stun.cloudflare.com:3478" },

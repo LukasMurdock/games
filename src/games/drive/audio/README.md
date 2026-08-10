@@ -21,7 +21,7 @@ To add an engine:
 1. Add an `EngineDefinition` to `ENGINE_TYPES`.
 2. Supply four equal-length order tables (the reference extraction pipeline produces 32 quantized magnitudes per table).
 3. Set firing texture, RPM range, induction, output character, and transmission defaults.
-4. Validate idle, pull, circle, and linked-drift traces in `/maneuver-lab/`.
+4. Validate idle, pull, circle, and linked-drift traces in `/drive/labs/maneuvers/`.
 5. Mark uncalibrated engines as `procedural-prototype` until reference evidence supports them.
 
 The production default remains the reference-derived turbo inline-six. The NA V8 and high-revving NA inline-four registrations are explicit procedural prototypes that prove the seam; they are not claims of sample-matched accuracy.

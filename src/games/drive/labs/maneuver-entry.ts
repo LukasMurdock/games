@@ -1,19 +1,19 @@
-import "./styles/maneuver-lab.css";
+import "../styles/maneuver-lab.css";
 import {
   createCarAudio,
   type CarAudio,
   type CarAudioIsolation,
-} from "./lib/driving-game/audio/car-audio";
+} from "../audio/car-audio";
 import {
   DEFAULT_ENGINE_TYPE,
   ENGINE_TYPES,
   type EngineTypeId,
-} from "./lib/driving-game/audio/engine-types";
+} from "../audio/engine-types";
 import {
   cloneTransmissionTuning,
   type TransmissionTuning,
-} from "./lib/driving-game/audio/transmission-tuning";
-import { DRIVING_PROFILES, type DrivingProfileName } from "./lib/driving-game/driving-profiles";
+} from "../audio/transmission-tuning";
+import { DRIVING_PROFILES, type DrivingProfileName } from "../driving-profiles";
 import {
   buildManeuverTrace,
   maneuverSegmentAt,
@@ -22,7 +22,7 @@ import {
   sampleManeuverTrace,
   type ManeuverId,
   type ManeuverTraceSample,
-} from "./lib/driving-game/labs/maneuver-scenarios";
+} from "./maneuver-scenarios";
 
 const STORAGE_KEY = "driving-game:dyno-tuning:v2";
 const element = <T extends HTMLElement>(selector: string) => {

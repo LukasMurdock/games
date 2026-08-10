@@ -391,10 +391,16 @@ async function testMobileMultiplayerLayout(browserInstance) {
 
 async function testManeuverSoundLab(browserInstance) {
   const context = await browserInstance.newContext({ viewport: { width: 1280, height: 900 } });
+  const dyno = await context.newPage();
+  await dyno.goto(`http://127.0.0.1:${port}/dyno/?legacy=1`);
+  await dyno.waitForURL(`http://127.0.0.1:${port}/drive/labs/dyno/?legacy=1`);
+  await dyno.waitForSelector("#run-pull");
+  await dyno.close();
   const page = await context.newPage();
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
-  await page.goto(`http://127.0.0.1:${port}/maneuver-lab/`);
+  await page.goto(`http://127.0.0.1:${port}/maneuver-lab/?legacy=1`);
+  await page.waitForURL(`http://127.0.0.1:${port}/drive/labs/maneuvers/?legacy=1`);
   await page.waitForSelector("#path-canvas");
   if (await page.locator("[data-scenario]").count() !== 4) {
     throw new Error("Maneuver Sound Lab did not expose all production scenarios.");
