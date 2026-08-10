@@ -19,6 +19,18 @@ body {
 button,
 a { font: inherit; }
 
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .demo {
   position: relative;
   width: 100vw;
@@ -29,6 +41,31 @@ a { font: inherit; }
   background:
     radial-gradient(circle at 50% 48%, rgba(10, 56, 52, 0.16), transparent 38%),
     #020405;
+}
+
+.demo:not(.is-ready) > :not(.demo-loading) { visibility: hidden; }
+
+.demo-loading {
+  position: absolute;
+  z-index: 20;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: #020405;
+}
+
+.demo-loading > span:first-child {
+  width: 0.42rem;
+  height: 0.42rem;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0.7rem #fff, 0 0 2.2rem #35f7db, 0 0 4rem #ff326f;
+  animation: loading-signal 1.15s ease-in-out infinite alternate;
+}
+
+@keyframes loading-signal {
+  from { opacity: 0.32; transform: scale(0.65); }
+  to { opacity: 1; transform: scale(1); }
 }
 
 .demo::after {
@@ -110,8 +147,7 @@ a { font: inherit; }
   transform: translate(-50%, 0);
 }
 
-.demo-kicker,
-.demo-credit {
+.demo-kicker {
   margin: 0;
   color: #9bb0aa;
   font-size: clamp(0.63rem, 1.3vw, 0.75rem);
@@ -163,7 +199,6 @@ a { font: inherit; }
 
 .replay-button { appearance: none; }
 
-.demo-credit { margin-top: 1.5rem; }
 
 .demo-progress {
   position: absolute;
@@ -187,6 +222,8 @@ a { font: inherit; }
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .demo-loading > span:first-child { animation: none; }
+
   #demo-canvas,
   .demo-progress { display: none; }
 
@@ -205,4 +242,68 @@ a { font: inherit; }
   }
 
   .replay-button { display: none; }
+}
+
+.drift-lab {
+  position: fixed;
+  z-index: 30;
+  top: 1rem;
+  left: 1rem;
+  width: min(21rem, calc(100vw - 2rem));
+  max-height: calc(100dvh - 2rem);
+  overflow: auto;
+  padding: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 1rem;
+  color: #effaf7;
+  background: rgba(2, 8, 9, 0.88);
+  box-shadow: 0 1.5rem 5rem rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(18px);
+}
+
+.drift-lab button,
+.drift-lab input { font: inherit; }
+
+.drift-lab button {
+  padding: 0.45rem 0.65rem;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 0.55rem;
+  color: inherit;
+  background: rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+}
+
+.drift-lab button:hover,
+.drift-lab button[aria-pressed="true"] {
+  border-color: #55ffe4;
+  background: rgba(85, 255, 228, 0.18);
+}
+
+.drift-lab-heading,
+.drift-lab-heading > div,
+.drift-lab label,
+.drift-lab-controls,
+.drift-lab-telemetry { display: flex; }
+
+.drift-lab-heading { align-items: center; justify-content: space-between; gap: 1rem; }
+.drift-lab-heading > div { flex-direction: column; }
+.drift-lab-heading span { color: #8ca49e; font-size: 0.62rem; letter-spacing: 0.12em; text-transform: uppercase; }
+.drift-lab-heading strong { font-size: 1.15rem; }
+.drift-lab label { flex-direction: column; gap: 0.35rem; font-size: 0.72rem; }
+.drift-lab label > span { display: flex; justify-content: space-between; gap: 1rem; }
+.drift-lab input { width: 100%; accent-color: #55ffe4; }
+.drift-lab-time { margin-top: 1rem; }
+.drift-lab-cameras { display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem; margin: 0.8rem 0; }
+.drift-lab-profile { margin: 0.8rem 0; padding-block: 0.7rem; border-block: 1px solid rgba(255, 255, 255, 0.12); color: #9fb2ad; font-size: 0.68rem; letter-spacing: 0.04em; }
+.drift-lab-controls { flex-direction: column; gap: 0.65rem; padding: 0.8rem 0; border-block: 1px solid rgba(255, 255, 255, 0.12); }
+.drift-lab-legend { display: flex; gap: 0.8rem; margin-top: 0.8rem; font-size: 0.65rem; text-transform: uppercase; }
+.drift-lab-legend span::before { display: inline-block; width: 0.55rem; height: 0.15rem; margin-right: 0.3rem; content: ""; vertical-align: middle; background: currentColor; }
+.drift-lab-legend .velocity { color: #55ffe4; }
+.drift-lab-legend .chassis { color: #ff397b; }
+.drift-lab-legend .wheels { color: #fff; }
+.drift-lab-telemetry { margin: 0.65rem 0; color: #b9cbc6; font: 0.7rem/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.drift-lab-copy { width: 100%; }
+
+@media (max-width: 680px) {
+  .drift-lab { top: auto; bottom: 0.75rem; left: 0.75rem; width: calc(100vw - 1.5rem); max-height: 48dvh; }
 }

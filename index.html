@@ -7,6 +7,7 @@
     <meta name="robots" content="noindex, nofollow" />
     <meta name="theme-color" content="#020405" />
     <title>Drive — A Real-Time Demo</title>
+    <link rel="stylesheet" href="/src/styles/demo.css" />
     <script>
       (() => {
         const parameters = new URLSearchParams(window.location.search);
@@ -19,7 +20,12 @@
     </script>
   </head>
   <body>
-    <main class="demo" aria-label="Drive real-time introduction">
+    <main id="demo" class="demo" aria-label="Drive real-time introduction">
+      <div id="demo-loading" class="demo-loading" role="status">
+        <span aria-hidden="true"></span>
+        <span class="visually-hidden">Loading real-time demo</span>
+      </div>
+
       <canvas id="demo-canvas" aria-hidden="true"></canvas>
 
       <nav class="demo-nav" aria-label="Demo controls">
@@ -34,7 +40,6 @@
           <a class="demo-action" href="/drive/">Take a drive&nbsp; →</a>
           <button id="replay-demo" class="replay-button" type="button">Replay demo</button>
         </div>
-        <p class="demo-credit">A real-time WebGL demo · Code / design</p>
       </section>
 
       <div id="demo-progress" class="demo-progress" aria-hidden="true"></div>
