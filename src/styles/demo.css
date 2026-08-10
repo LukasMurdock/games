@@ -93,9 +93,12 @@ a { font: inherit; }
   z-index: 6;
   top: max(1.1rem, env(safe-area-inset-top));
   right: max(1.1rem, env(safe-area-inset-right));
+  display: flex;
+  gap: 0.45rem;
 }
 
 .skip-link,
+.sound-button,
 .demo-action,
 .replay-button {
   border: 1px solid rgba(255, 255, 255, 0.24);
@@ -107,8 +110,10 @@ a { font: inherit; }
   text-decoration: none;
 }
 
-.skip-link {
+.skip-link,
+.sound-button {
   display: inline-flex;
+  align-items: center;
   padding: 0.7rem 0.95rem;
   font-size: 0.68rem;
   font-weight: 760;
@@ -116,8 +121,15 @@ a { font: inherit; }
   text-transform: uppercase;
 }
 
+.sound-button {
+  appearance: none;
+  cursor: pointer;
+}
+
 .skip-link:hover,
 .skip-link:focus-visible,
+.sound-button:hover,
+.sound-button:focus-visible,
 .demo-action:hover,
 .demo-action:focus-visible,
 .replay-button:hover,
@@ -222,6 +234,7 @@ a { font: inherit; }
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .sound-button { display: none; }
   .demo-loading > span:first-child { animation: none; }
 
   #demo-canvas,

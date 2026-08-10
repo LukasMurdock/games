@@ -3,6 +3,7 @@ import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
+import { createCarAudio, type CarAudio } from "./lib/driving-game/audio/car-audio";
 import { DRIVING_PROFILES } from "./lib/driving-game/driving-profiles";
 import { createDrivingVehicleSimulation } from "./lib/driving-game/simulation/vehicle-simulation";
 import type { DriftPhase } from "./lib/driving-game/types";
@@ -44,10 +45,13 @@ function revealDemo() {
 type ProductionTraceSample = DriftPose & {
   time: number;
   distance: number;
+  speed: number;
   forwardSpeed: number;
   targetRoll: number;
   targetPitch: number;
   driftPhase: DriftPhase;
+  boosting: boolean;
+  braking: boolean;
 };
 
 function buildProductionDriveTrace() {
@@ -103,10 +107,13 @@ function buildProductionDriveTrace() {
       chassisHeading,
       steering: steeringVisual,
       slipAngle: frame.visualSlip,
-      forwardSpeed: frame.forwardSpeed * scale,
+      speed: frame.speed,
+      forwardSpeed: frame.forwardSpeed,
       targetRoll: frame.targetRoll,
       targetPitch: frame.targetPitch,
       driftPhase: frame.driftPhase,
+      boosting: frame.boosting,
+      braking: frame.braking || frame.handbrake,
     });
   }
   return samples;
@@ -128,10 +135,13 @@ function sampleProductionTrace(time: number): ProductionTraceSample {
     chassisHeading: first.chassisHeading + shortestAngle(first.chassisHeading, second.chassisHeading) * alpha,
     steering: THREE.MathUtils.lerp(first.steering, second.steering, alpha),
     slipAngle: THREE.MathUtils.lerp(first.slipAngle, second.slipAngle, alpha),
+    speed: THREE.MathUtils.lerp(first.speed, second.speed, alpha),
     forwardSpeed: THREE.MathUtils.lerp(first.forwardSpeed, second.forwardSpeed, alpha),
     targetRoll: THREE.MathUtils.lerp(first.targetRoll, second.targetRoll, alpha),
     targetPitch: THREE.MathUtils.lerp(first.targetPitch, second.targetPitch, alpha),
     driftPhase: alpha < 0.5 ? first.driftPhase : second.driftPhase,
+    boosting: alpha < 0.5 ? first.boosting : second.boosting,
+    braking: alpha < 0.5 ? first.braking : second.braking,
   };
 }
 
@@ -162,6 +172,22 @@ function startDemo(target: HTMLCanvasElement) {
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.15;
+
+  const soundButton = document.querySelector<HTMLButtonElement>("#demo-sound");
+  let carAudio: CarAudio | null = null;
+  let soundEnabled = false;
+  soundButton?.addEventListener("click", () => {
+    if (!carAudio) carAudio = createCarAudio(DRIVING_PROFILES.aggressive);
+    if (!carAudio) {
+      soundButton.textContent = "Sound unavailable";
+      soundButton.disabled = true;
+      return;
+    }
+    soundEnabled = !soundEnabled;
+    carAudio.setPaused(!soundEnabled);
+    soundButton.setAttribute("aria-pressed", String(soundEnabled));
+    soundButton.textContent = soundEnabled ? "Sound off" : "Sound on";
+  });
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x020405);
@@ -240,6 +266,7 @@ function startDemo(target: HTMLCanvasElement) {
   let startedAt = performance.now();
   let forcedTime: number | null = null;
   let frameId = 0;
+  let previousFrameTime = performance.now();
   let firstFramePresented = false;
 
   replay?.addEventListener("click", () => {
@@ -264,6 +291,8 @@ function startDemo(target: HTMLCanvasElement) {
   window.addEventListener("resize", resize);
 
   const render = (now: number) => {
+    const dt = Math.min(0.05, Math.max(0, (now - previousFrameTime) / 1000));
+    previousFrameTime = now;
     let elapsed = driftLab
       ? driftLab.getTime(now)
       : forcedTime ?? (now - startedAt) / 1000;
@@ -273,7 +302,7 @@ function startDemo(target: HTMLCanvasElement) {
       title?.classList.remove("is-visible");
     }
     const normalized = elapsed / DURATION;
-    updateSequence(elapsed, now / 1000);
+    updateSequence(elapsed, now / 1000, dt);
     if (progress) progress.style.transform = `scaleX(${normalized})`;
     composer.render();
     if (!firstFramePresented) {
@@ -286,8 +315,9 @@ function startDemo(target: HTMLCanvasElement) {
     frameId = requestAnimationFrame(render);
   };
 
-  const updateSequence = (time: number, clock: number) => {
+  const updateSequence = (time: number, clock: number, dt: number) => {
     camera.up.set(0, 1, 0);
+    let audioPose: ProductionTraceSample | null = null;
     if (demo) demo.dataset.demoTime = time.toFixed(3);
     const signalPhase = clamp01(time / 3);
     const signalIndex = Math.max(1, Math.floor(signalPhase * signalPoints.length));
@@ -326,6 +356,7 @@ function startDemo(target: HTMLCanvasElement) {
       player.wire.position.copy(player.surface.position);
     } else {
       const pose = sampleProductionTrace(time - 11.2);
+      audioPose = pose;
       const { x, z, chassisHeading, steering, distance } = pose;
       const curveAmount = clamp01(Math.abs(pose.slipAngle) / THREE.MathUtils.degToRad(35));
       player.surface.position.set(x, 0.05, z);
@@ -383,6 +414,11 @@ function startDemo(target: HTMLCanvasElement) {
         * (0.28 + 0.28 * Math.sin(clock * 1.7 + index));
     });
 
+    if (carAudio && soundEnabled) {
+      updateDemoCarAudio(carAudio, audioPose, dt);
+      carAudio.setPaused(resolution > 0.98);
+    }
+
     bloom.strength = 1.45 + resolution * 0.9;
     renderer.toneMappingExposure = 1.15 - resolution * 0.32;
     if (resolution > 0.001) title?.classList.add("is-visible");
@@ -399,9 +435,27 @@ function startDemo(target: HTMLCanvasElement) {
   window.addEventListener("pagehide", () => {
     cancelAnimationFrame(frameId);
     window.removeEventListener("resize", resize);
+    carAudio?.destroy();
     composer.dispose();
     renderer.dispose();
   }, { once: true });
+}
+
+function updateDemoCarAudio(audio: CarAudio, pose: ProductionTraceSample | null, dt: number) {
+  audio.update({
+    dt,
+    speed: pose?.speed ?? 0,
+    forwardSpeed: pose?.forwardSpeed ?? 0,
+    signedSlipDegrees: pose ? THREE.MathUtils.radToDeg(pose.slipAngle) : 0,
+    steeringLoad: pose ? Math.min(1, Math.abs(pose.steering) / 0.48) : 0,
+    steerDirection: pose ? Math.sign(pose.steering) : 0,
+    phase: pose?.driftPhase ?? "grip",
+    onPavement: true,
+    boosting: pose?.boosting ?? false,
+    throttle: pose ? 1 : 0.18,
+    braking: pose?.braking ?? false,
+    reversing: false,
+  });
 }
 
 type DriftLab = {
