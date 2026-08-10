@@ -194,7 +194,7 @@ function startDemo(target: HTMLCanvasElement) {
 
   const signalCurve = new THREE.CatmullRomCurve3([
     new THREE.Vector3(-8, 4.2, -3),
-    new THREE.Vector3(-3.5, -0.7, 2),
+    new THREE.Vector3(-3.5, 0.35, 2),
     new THREE.Vector3(2.8, 2.7, 1),
     new THREE.Vector3(-2.1, 1.2, 0),
     new THREE.Vector3(0, 0.8, 0),
