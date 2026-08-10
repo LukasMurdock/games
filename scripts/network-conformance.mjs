@@ -370,6 +370,10 @@ async function testSinglePlayerDriving(browserInstance) {
   if (before.equals(after)) throw new Error("Extracted local driving simulation did not advance presentation.");
   await page.keyboard.press("KeyP");
   await page.waitForSelector("#pause-overlay.is-visible");
+  const multiplayerLink = page.locator("#pause-overlay .pause-multiplayer-link");
+  if (await multiplayerLink.getAttribute("href") !== "/drive/?multiplayer=host") {
+    throw new Error("Single-player pause screen lost its multiplayer entry point.");
+  }
   const pauseMaps = page.locator("#pause-overlay [data-map-option]");
   if (await pauseMaps.count() !== 6) throw new Error("Single-player pause screen lost its map options.");
   await page.click("#pause-overlay [data-map-option='crosswind']");
