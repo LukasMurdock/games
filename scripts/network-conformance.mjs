@@ -321,7 +321,25 @@ async function testMobileMultiplayerLayout(browserInstance) {
     || portrait.bottomPadding < 64
   ) throw new Error(`Mobile multiplayer pause layout is unsafe: ${JSON.stringify(portrait)}`);
 
+  await page.keyboard.press("KeyP");
+  await page.waitForFunction(() => document.querySelector("#pause-overlay")?.getAttribute("aria-hidden") === "true");
+  const touchControls = await page.evaluate(() => {
+    const root = document.querySelector("#driving-game");
+    const controls = document.querySelector(".touch-controls");
+    const buttons = [...document.querySelectorAll(".touch-controls button")];
+    return {
+      capable: root?.getAttribute("data-touch-capable"),
+      display: controls ? getComputedStyle(controls).display : "missing",
+      visibleButtons: buttons.filter((button) => button.getBoundingClientRect().width > 0).length,
+    };
+  });
+  if (touchControls.capable !== "true" || touchControls.display === "none" || touchControls.visibleButtons !== 3) {
+    throw new Error(`Mobile multiplayer controls are unavailable: ${JSON.stringify(touchControls)}`);
+  }
+
   await page.setViewportSize({ width: 844, height: 390 });
+  await page.keyboard.press("Escape");
+  await page.waitForSelector("#pause-overlay.is-visible", { state: "visible" });
   await page.waitForTimeout(100);
   const landscapeOverflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
   if (landscapeOverflow > 1) throw new Error("Landscape multiplayer pause layout overflows horizontally.");

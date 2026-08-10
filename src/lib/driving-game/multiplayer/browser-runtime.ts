@@ -251,6 +251,15 @@ function startPlayLoop(
   overlay: ReturnType<typeof setupOverlay>,
 ) {
   root.dataset.multiplayer = "true";
+  const coarsePointerQuery = window.matchMedia("(any-pointer: coarse)");
+  const desktopPointerQuery = window.matchMedia("(hover: hover) and (pointer: fine)");
+  const updateInputCapabilities = () => {
+    root.dataset.touchCapable = String(navigator.maxTouchPoints > 0 || coarsePointerQuery.matches);
+    root.dataset.desktopControls = String(desktopPointerQuery.matches);
+  };
+  updateInputCapabilities();
+  coarsePointerQuery.addEventListener("change", updateInputCapabilities);
+  desktopPointerQuery.addEventListener("change", updateInputCapabilities);
   root.querySelector("#intro")?.classList.add("is-hidden");
   root.querySelector<HTMLElement>("#speed-lines-canvas")?.setAttribute("hidden", "");
   root.querySelectorAll<HTMLElement>("#leaderboard-button, #reset-button")
@@ -620,6 +629,8 @@ function startPlayLoop(
     window.removeEventListener("keyup", onKeyUp);
     touchCleanups.forEach((cleanup) => cleanup());
     root.removeEventListener("pointerdown", ensureAudio);
+    coarsePointerQuery.removeEventListener("change", updateInputCapabilities);
+    desktopPointerQuery.removeEventListener("change", updateInputCapabilities);
     audio?.destroy();
     diagnosticsHud.remove();
     pauseOverlay?.classList.remove("is-visible", "is-multiplayer");
