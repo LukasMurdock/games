@@ -47,4 +47,6 @@ Clients never send trusted position, velocity, heading, drift phase, boost, coll
 | 1 | `LEFT` | Player ID |
 | 2 | `COLLISION` | Player ID, optional other player ID, terminal flag |
 
+A `COLLISION` carrying `other player ID` is terminal for both involved vehicles: the host resets each vehicle to its assigned spawn before publishing the next snapshot. Environment collisions retain their existing terminal flag semantics.
+
 The ruleset allocates no game-specific GameNet message types or feature IDs. The initial composition is bound to Cruise, City Circuit, the `loose` profile, automatic controls, 60 Hz host ticks, 20 Hz snapshots, and an eight-position deterministic starting grid. The public driving page now negotiates the separate configurable production ruleset so the host can change maps while paused. This fixed ruleset remains available as a permanent compatibility fixture; existing local modes remain independent.

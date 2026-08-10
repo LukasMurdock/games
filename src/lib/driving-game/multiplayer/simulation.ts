@@ -260,30 +260,15 @@ function resolveVehicleCollisions(state: AuthoritativeDrivingState) {
       const dz = right.position.z - left.position.z;
       const distance = Math.hypot(dx, dz);
       if (distance >= minimumDistance) continue;
-      const normalX = distance > 1e-6 ? dx / distance : 1;
-      const normalZ = distance > 1e-6 ? dz / distance : 0;
-      const closingSpeed = Math.max(0,
-        (left.velocity.x - right.velocity.x) * normalX
-        + (left.velocity.z - right.velocity.z) * normalZ,
-      );
-      const penetration = (minimumDistance - distance) / 2;
-      leftRecord.vehicle.applyExternalCollision({
-        normalX: -normalX,
-        normalZ: -normalZ,
-        penetration,
-        closingSpeed,
-      });
-      rightRecord.vehicle.applyExternalCollision({
-        normalX,
-        normalZ,
-        penetration,
-        closingSpeed,
-      });
+      leftRecord.vehicle.reset();
+      rightRecord.vehicle.reset();
+      leftRecord.steering = 0;
+      rightRecord.steering = 0;
       state.pendingEvents.push({
         type: "collision",
         playerId: leftId,
         otherPlayerId: rightId,
-        terminal: false,
+        terminal: true,
       });
     }
   }

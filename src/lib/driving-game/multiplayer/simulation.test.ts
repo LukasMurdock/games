@@ -148,14 +148,19 @@ describe("production authoritative driving simulation", () => {
         handbrake: false,
       });
     }
-    const events = [];
-    for (let index = 0; index < 90; index++) {
-      events.push(...(authoritativeDrivingSimulation.tick(state, 1 / 60) ?? []));
+    let collision;
+    for (let index = 0; index < 90 && !collision; index++) {
+      collision = (authoritativeDrivingSimulation.tick(state, 1 / 60) ?? [])
+        .find((event) => event.type === "collision" && event.otherPlayerId !== undefined);
     }
-    expect(events.some((event) => event.type === "collision" && event.otherPlayerId !== undefined))
-      .toBe(true);
+    expect(collision).toEqual({
+      type: "collision",
+      playerId: "one",
+      otherPlayerId: "two",
+      terminal: true,
+    });
     const [one, two] = authoritativeDrivingSimulation.snapshot(state).players;
-    expect(Math.hypot(one.position[0] - two.position[0], one.position[1] - two.position[1]))
-      .toBeGreaterThanOrEqual(2.49);
+    expect(one).toEqual(expect.objectContaining({ position: [-2, 0], velocity: [0, 0], steering: 0 }));
+    expect(two).toEqual(expect.objectContaining({ position: [2, 0], velocity: [0, 0], steering: 0 }));
   });
 });
