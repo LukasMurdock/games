@@ -1,0 +1,1657 @@
+{
+  "source": "clips/garrett-01-dyno-pull.wav",
+  "sampleRate": 12000,
+  "halfOrders": 32,
+  "tables": {
+    "low": {
+      "amplitudes": [
+        0,
+        0,
+        0,
+        0,
+        76,
+        255,
+        59,
+        72,
+        57,
+        35,
+        59,
+        127,
+        58,
+        47,
+        49,
+        27,
+        57,
+        102,
+        59,
+        40,
+        40,
+        36,
+        54,
+        85,
+        28,
+        21,
+        41,
+        36,
+        48,
+        75,
+        29,
+        31
+      ],
+      "frameCount": 53
+    },
+    "mid": {
+      "amplitudes": [
+        0,
+        0,
+        0,
+        29,
+        60,
+        255,
+        84,
+        39,
+        35,
+        35,
+        82,
+        229,
+        60,
+        36,
+        27,
+        28,
+        52,
+        119,
+        45,
+        37,
+        28,
+        26,
+        62,
+        103,
+        45,
+        36,
+        40,
+        30,
+        49,
+        82,
+        28,
+        26
+      ],
+      "frameCount": 119
+    },
+    "high": {
+      "amplitudes": [
+        0,
+        0,
+        5,
+        42,
+        78,
+        237,
+        76,
+        57,
+        54,
+        45,
+        116,
+        255,
+        100,
+        35,
+        49,
+        60,
+        63,
+        92,
+        50,
+        53,
+        57,
+        43,
+        80,
+        108,
+        56,
+        29,
+        37,
+        39,
+        52,
+        78,
+        59,
+        76
+      ],
+      "frameCount": 56
+    },
+    "redline": {
+      "amplitudes": [
+        0,
+        0,
+        41,
+        55,
+        56,
+        188,
+        101,
+        76,
+        80,
+        96,
+        79,
+        255,
+        109,
+        25,
+        27,
+        56,
+        85,
+        202,
+        74,
+        90,
+        60,
+        70,
+        63,
+        133,
+        82,
+        58,
+        107,
+        101,
+        104,
+        109,
+        110,
+        113
+      ],
+      "frameCount": 22
+    }
+  },
+  "pitchTrack": [
+    {
+      "time": 0.171,
+      "firingHz": 149.0,
+      "rpm": 2980,
+      "confidence": 4.24
+    },
+    {
+      "time": 0.213,
+      "firingHz": 123.0,
+      "rpm": 2460,
+      "confidence": 4.951
+    },
+    {
+      "time": 0.256,
+      "firingHz": 135.0,
+      "rpm": 2700,
+      "confidence": 5.208
+    },
+    {
+      "time": 0.299,
+      "firingHz": 135.0,
+      "rpm": 2700,
+      "confidence": 5.033
+    },
+    {
+      "time": 0.341,
+      "firingHz": 134.0,
+      "rpm": 2680,
+      "confidence": 5.169
+    },
+    {
+      "time": 0.384,
+      "firingHz": 134.0,
+      "rpm": 2680,
+      "confidence": 5.74
+    },
+    {
+      "time": 0.427,
+      "firingHz": 134.0,
+      "rpm": 2680,
+      "confidence": 5.967
+    },
+    {
+      "time": 0.469,
+      "firingHz": 132.0,
+      "rpm": 2640,
+      "confidence": 5.505
+    },
+    {
+      "time": 0.512,
+      "firingHz": 131.0,
+      "rpm": 2620,
+      "confidence": 5.238
+    },
+    {
+      "time": 0.555,
+      "firingHz": 131.0,
+      "rpm": 2620,
+      "confidence": 4.896
+    },
+    {
+      "time": 0.597,
+      "firingHz": 131.0,
+      "rpm": 2620,
+      "confidence": 4.411
+    },
+    {
+      "time": 0.64,
+      "firingHz": 131.0,
+      "rpm": 2620,
+      "confidence": 4.343
+    },
+    {
+      "time": 0.683,
+      "firingHz": 139.0,
+      "rpm": 2780,
+      "confidence": 4.29
+    },
+    {
+      "time": 0.725,
+      "firingHz": 179.0,
+      "rpm": 3580,
+      "confidence": 4.335
+    },
+    {
+      "time": 0.768,
+      "firingHz": 179.0,
+      "rpm": 3580,
+      "confidence": 6.212
+    },
+    {
+      "time": 0.811,
+      "firingHz": 179.0,
+      "rpm": 3580,
+      "confidence": 7.427
+    },
+    {
+      "time": 0.853,
+      "firingHz": 179.0,
+      "rpm": 3580,
+      "confidence": 7.896
+    },
+    {
+      "time": 0.896,
+      "firingHz": 179.0,
+      "rpm": 3580,
+      "confidence": 7.506
+    },
+    {
+      "time": 0.939,
+      "firingHz": 179.0,
+      "rpm": 3580,
+      "confidence": 6.151
+    },
+    {
+      "time": 0.981,
+      "firingHz": 176.0,
+      "rpm": 3520,
+      "confidence": 4.631
+    },
+    {
+      "time": 1.024,
+      "firingHz": 167.0,
+      "rpm": 3340,
+      "confidence": 4.157
+    },
+    {
+      "time": 1.067,
+      "firingHz": 120.0,
+      "rpm": 2400,
+      "confidence": 3.946
+    },
+    {
+      "time": 1.109,
+      "firingHz": 100.0,
+      "rpm": 2000,
+      "confidence": 4.616
+    },
+    {
+      "time": 1.152,
+      "firingHz": 97.0,
+      "rpm": 1940,
+      "confidence": 4.783
+    },
+    {
+      "time": 1.195,
+      "firingHz": 95.0,
+      "rpm": 1900,
+      "confidence": 4.965
+    },
+    {
+      "time": 1.237,
+      "firingHz": 95.0,
+      "rpm": 1900,
+      "confidence": 5.48
+    },
+    {
+      "time": 1.28,
+      "firingHz": 95.0,
+      "rpm": 1900,
+      "confidence": 5.028
+    },
+    {
+      "time": 1.323,
+      "firingHz": 131.0,
+      "rpm": 2620,
+      "confidence": 5.227
+    },
+    {
+      "time": 1.365,
+      "firingHz": 131.0,
+      "rpm": 2620,
+      "confidence": 6.257
+    },
+    {
+      "time": 1.408,
+      "firingHz": 131.0,
+      "rpm": 2620,
+      "confidence": 6.348
+    },
+    {
+      "time": 1.451,
+      "firingHz": 121.0,
+      "rpm": 2420,
+      "confidence": 6.879
+    },
+    {
+      "time": 1.493,
+      "firingHz": 121.0,
+      "rpm": 2420,
+      "confidence": 7.785
+    },
+    {
+      "time": 1.536,
+      "firingHz": 121.0,
+      "rpm": 2420,
+      "confidence": 6.351
+    },
+    {
+      "time": 1.579,
+      "firingHz": 199.0,
+      "rpm": 3980,
+      "confidence": 6.308
+    },
+    {
+      "time": 1.621,
+      "firingHz": 199.0,
+      "rpm": 3980,
+      "confidence": 7.662
+    },
+    {
+      "time": 1.664,
+      "firingHz": 201.0,
+      "rpm": 4020,
+      "confidence": 8.277
+    },
+    {
+      "time": 1.707,
+      "firingHz": 202.0,
+      "rpm": 4040,
+      "confidence": 9.339
+    },
+    {
+      "time": 1.749,
+      "firingHz": 204.0,
+      "rpm": 4080,
+      "confidence": 9.746
+    },
+    {
+      "time": 1.792,
+      "firingHz": 204.0,
+      "rpm": 4080,
+      "confidence": 10.099
+    },
+    {
+      "time": 1.835,
+      "firingHz": 205.0,
+      "rpm": 4100,
+      "confidence": 9.658
+    },
+    {
+      "time": 1.877,
+      "firingHz": 206.0,
+      "rpm": 4120,
+      "confidence": 8.873
+    },
+    {
+      "time": 1.92,
+      "firingHz": 211.0,
+      "rpm": 4220,
+      "confidence": 9.574
+    },
+    {
+      "time": 1.963,
+      "firingHz": 212.0,
+      "rpm": 4240,
+      "confidence": 9.904
+    },
+    {
+      "time": 2.005,
+      "firingHz": 213.0,
+      "rpm": 4260,
+      "confidence": 9.601
+    },
+    {
+      "time": 2.048,
+      "firingHz": 216.0,
+      "rpm": 4320,
+      "confidence": 8.763
+    },
+    {
+      "time": 2.091,
+      "firingHz": 220.0,
+      "rpm": 4400,
+      "confidence": 8.828
+    },
+    {
+      "time": 2.133,
+      "firingHz": 220.0,
+      "rpm": 4400,
+      "confidence": 8.726
+    },
+    {
+      "time": 2.176,
+      "firingHz": 225.0,
+      "rpm": 4500,
+      "confidence": 8.62
+    },
+    {
+      "time": 2.219,
+      "firingHz": 225.0,
+      "rpm": 4500,
+      "confidence": 9.186
+    },
+    {
+      "time": 2.261,
+      "firingHz": 225.0,
+      "rpm": 4500,
+      "confidence": 8.895
+    },
+    {
+      "time": 2.304,
+      "firingHz": 226.0,
+      "rpm": 4520,
+      "confidence": 8.065
+    },
+    {
+      "time": 2.347,
+      "firingHz": 232.0,
+      "rpm": 4640,
+      "confidence": 7.264
+    },
+    {
+      "time": 2.389,
+      "firingHz": 232.0,
+      "rpm": 4640,
+      "confidence": 7.418
+    },
+    {
+      "time": 2.432,
+      "firingHz": 234.0,
+      "rpm": 4680,
+      "confidence": 7.613
+    },
+    {
+      "time": 2.475,
+      "firingHz": 234.0,
+      "rpm": 4680,
+      "confidence": 7.154
+    },
+    {
+      "time": 2.517,
+      "firingHz": 240.0,
+      "rpm": 4800,
+      "confidence": 5.8
+    },
+    {
+      "time": 2.56,
+      "firingHz": 240.0,
+      "rpm": 4800,
+      "confidence": 5.566
+    },
+    {
+      "time": 2.603,
+      "firingHz": 246.0,
+      "rpm": 4920,
+      "confidence": 5.382
+    },
+    {
+      "time": 2.645,
+      "firingHz": 247.0,
+      "rpm": 4940,
+      "confidence": 5.34
+    },
+    {
+      "time": 2.688,
+      "firingHz": 248.0,
+      "rpm": 4960,
+      "confidence": 4.674
+    },
+    {
+      "time": 2.731,
+      "firingHz": 254.0,
+      "rpm": 5080,
+      "confidence": 5.083
+    },
+    {
+      "time": 2.773,
+      "firingHz": 257.0,
+      "rpm": 5140,
+      "confidence": 5.436
+    },
+    {
+      "time": 2.816,
+      "firingHz": 257.0,
+      "rpm": 5140,
+      "confidence": 5.807
+    },
+    {
+      "time": 2.859,
+      "firingHz": 258.0,
+      "rpm": 5160,
+      "confidence": 5.19
+    },
+    {
+      "time": 2.901,
+      "firingHz": 264.0,
+      "rpm": 5280,
+      "confidence": 4.227
+    },
+    {
+      "time": 2.944,
+      "firingHz": 265.0,
+      "rpm": 5300,
+      "confidence": 4.624
+    },
+    {
+      "time": 2.987,
+      "firingHz": 266.0,
+      "rpm": 5320,
+      "confidence": 4.362
+    },
+    {
+      "time": 3.029,
+      "firingHz": 272.0,
+      "rpm": 5440,
+      "confidence": 4.911
+    },
+    {
+      "time": 3.072,
+      "firingHz": 273.0,
+      "rpm": 5460,
+      "confidence": 5.142
+    },
+    {
+      "time": 3.115,
+      "firingHz": 275.0,
+      "rpm": 5500,
+      "confidence": 4.862
+    },
+    {
+      "time": 3.157,
+      "firingHz": 279.0,
+      "rpm": 5580,
+      "confidence": 5.545
+    },
+    {
+      "time": 3.2,
+      "firingHz": 281.0,
+      "rpm": 5620,
+      "confidence": 5.757
+    },
+    {
+      "time": 3.243,
+      "firingHz": 282.0,
+      "rpm": 5640,
+      "confidence": 5.74
+    },
+    {
+      "time": 3.285,
+      "firingHz": 284.0,
+      "rpm": 5680,
+      "confidence": 5.987
+    },
+    {
+      "time": 3.328,
+      "firingHz": 287.0,
+      "rpm": 5740,
+      "confidence": 6.833
+    },
+    {
+      "time": 3.371,
+      "firingHz": 288.0,
+      "rpm": 5760,
+      "confidence": 6.959
+    },
+    {
+      "time": 3.413,
+      "firingHz": 290.0,
+      "rpm": 5800,
+      "confidence": 6.835
+    },
+    {
+      "time": 3.456,
+      "firingHz": 293.0,
+      "rpm": 5860,
+      "confidence": 6.612
+    },
+    {
+      "time": 3.499,
+      "firingHz": 296.0,
+      "rpm": 5920,
+      "confidence": 6.175
+    },
+    {
+      "time": 3.541,
+      "firingHz": 296.0,
+      "rpm": 5920,
+      "confidence": 5.756
+    },
+    {
+      "time": 3.584,
+      "firingHz": 300.0,
+      "rpm": 6000,
+      "confidence": 5.019
+    },
+    {
+      "time": 3.627,
+      "firingHz": 300.0,
+      "rpm": 6000,
+      "confidence": 4.558
+    },
+    {
+      "time": 3.669,
+      "firingHz": 305.0,
+      "rpm": 6100,
+      "confidence": 4.653
+    },
+    {
+      "time": 3.712,
+      "firingHz": 306.0,
+      "rpm": 6120,
+      "confidence": 5.811
+    },
+    {
+      "time": 3.755,
+      "firingHz": 307.0,
+      "rpm": 6140,
+      "confidence": 6.538
+    },
+    {
+      "time": 3.797,
+      "firingHz": 310.0,
+      "rpm": 6200,
+      "confidence": 5.744
+    },
+    {
+      "time": 3.84,
+      "firingHz": 312.0,
+      "rpm": 6240,
+      "confidence": 5.384
+    },
+    {
+      "time": 3.883,
+      "firingHz": 312.0,
+      "rpm": 6240,
+      "confidence": 4.929
+    },
+    {
+      "time": 3.925,
+      "firingHz": 316.0,
+      "rpm": 6320,
+      "confidence": 4.057
+    },
+    {
+      "time": 3.968,
+      "firingHz": 318.0,
+      "rpm": 6360,
+      "confidence": 4.685
+    },
+    {
+      "time": 4.011,
+      "firingHz": 318.0,
+      "rpm": 6360,
+      "confidence": 4.449
+    },
+    {
+      "time": 4.053,
+      "firingHz": 318.0,
+      "rpm": 6360,
+      "confidence": 3.265
+    },
+    {
+      "time": 4.096,
+      "firingHz": 289.0,
+      "rpm": 5780,
+      "confidence": 3.278
+    },
+    {
+      "time": 4.139,
+      "firingHz": 289.0,
+      "rpm": 5780,
+      "confidence": 3.342
+    },
+    {
+      "time": 4.181,
+      "firingHz": 255.0,
+      "rpm": 5100,
+      "confidence": 4.144
+    },
+    {
+      "time": 4.224,
+      "firingHz": 255.0,
+      "rpm": 5100,
+      "confidence": 4.936
+    },
+    {
+      "time": 4.267,
+      "firingHz": 255.0,
+      "rpm": 5100,
+      "confidence": 6.069
+    },
+    {
+      "time": 4.309,
+      "firingHz": 259.0,
+      "rpm": 5180,
+      "confidence": 6.544
+    },
+    {
+      "time": 4.352,
+      "firingHz": 259.0,
+      "rpm": 5180,
+      "confidence": 7.482
+    },
+    {
+      "time": 4.395,
+      "firingHz": 259.0,
+      "rpm": 5180,
+      "confidence": 7.687
+    },
+    {
+      "time": 4.437,
+      "firingHz": 258.0,
+      "rpm": 5160,
+      "confidence": 7.192
+    },
+    {
+      "time": 4.48,
+      "firingHz": 258.0,
+      "rpm": 5160,
+      "confidence": 6.349
+    },
+    {
+      "time": 4.523,
+      "firingHz": 258.0,
+      "rpm": 5160,
+      "confidence": 5.441
+    },
+    {
+      "time": 4.565,
+      "firingHz": 258.0,
+      "rpm": 5160,
+      "confidence": 5.405
+    },
+    {
+      "time": 4.608,
+      "firingHz": 258.0,
+      "rpm": 5160,
+      "confidence": 5.259
+    },
+    {
+      "time": 4.651,
+      "firingHz": 258.0,
+      "rpm": 5160,
+      "confidence": 4.942
+    },
+    {
+      "time": 4.693,
+      "firingHz": 258.0,
+      "rpm": 5160,
+      "confidence": 4.672
+    },
+    {
+      "time": 4.736,
+      "firingHz": 286.0,
+      "rpm": 5720,
+      "confidence": 4.202
+    },
+    {
+      "time": 4.779,
+      "firingHz": 286.0,
+      "rpm": 5720,
+      "confidence": 4.156
+    },
+    {
+      "time": 4.821,
+      "firingHz": 254.0,
+      "rpm": 5080,
+      "confidence": 4.038
+    },
+    {
+      "time": 4.864,
+      "firingHz": 126.0,
+      "rpm": 2520,
+      "confidence": 4.117
+    },
+    {
+      "time": 4.907,
+      "firingHz": 123.0,
+      "rpm": 2460,
+      "confidence": 5.891
+    },
+    {
+      "time": 4.949,
+      "firingHz": 123.0,
+      "rpm": 2460,
+      "confidence": 8.327
+    },
+    {
+      "time": 4.992,
+      "firingHz": 123.0,
+      "rpm": 2460,
+      "confidence": 10.061
+    },
+    {
+      "time": 5.035,
+      "firingHz": 123.0,
+      "rpm": 2460,
+      "confidence": 11.398
+    },
+    {
+      "time": 5.077,
+      "firingHz": 123.0,
+      "rpm": 2460,
+      "confidence": 11.79
+    },
+    {
+      "time": 5.12,
+      "firingHz": 125.0,
+      "rpm": 2500,
+      "confidence": 12.05
+    },
+    {
+      "time": 5.163,
+      "firingHz": 125.0,
+      "rpm": 2500,
+      "confidence": 12.172
+    },
+    {
+      "time": 5.205,
+      "firingHz": 126.0,
+      "rpm": 2520,
+      "confidence": 11.785
+    },
+    {
+      "time": 5.248,
+      "firingHz": 127.0,
+      "rpm": 2540,
+      "confidence": 11.829
+    },
+    {
+      "time": 5.291,
+      "firingHz": 128.0,
+      "rpm": 2560,
+      "confidence": 11.478
+    },
+    {
+      "time": 5.333,
+      "firingHz": 129.0,
+      "rpm": 2580,
+      "confidence": 11.643
+    },
+    {
+      "time": 5.376,
+      "firingHz": 129.0,
+      "rpm": 2580,
+      "confidence": 11.26
+    },
+    {
+      "time": 5.419,
+      "firingHz": 130.0,
+      "rpm": 2600,
+      "confidence": 10.439
+    },
+    {
+      "time": 5.461,
+      "firingHz": 132.0,
+      "rpm": 2640,
+      "confidence": 10.279
+    },
+    {
+      "time": 5.504,
+      "firingHz": 132.0,
+      "rpm": 2640,
+      "confidence": 9.572
+    },
+    {
+      "time": 5.547,
+      "firingHz": 133.0,
+      "rpm": 2660,
+      "confidence": 9.247
+    },
+    {
+      "time": 5.589,
+      "firingHz": 134.0,
+      "rpm": 2680,
+      "confidence": 8.598
+    },
+    {
+      "time": 5.632,
+      "firingHz": 134.0,
+      "rpm": 2680,
+      "confidence": 7.91
+    },
+    {
+      "time": 5.675,
+      "firingHz": 137.0,
+      "rpm": 2740,
+      "confidence": 7.705
+    },
+    {
+      "time": 5.717,
+      "firingHz": 137.0,
+      "rpm": 2740,
+      "confidence": 8.012
+    },
+    {
+      "time": 5.76,
+      "firingHz": 138.0,
+      "rpm": 2760,
+      "confidence": 8.109
+    },
+    {
+      "time": 5.803,
+      "firingHz": 138.0,
+      "rpm": 2760,
+      "confidence": 8.134
+    },
+    {
+      "time": 5.845,
+      "firingHz": 138.0,
+      "rpm": 2760,
+      "confidence": 7.708
+    },
+    {
+      "time": 5.888,
+      "firingHz": 140.0,
+      "rpm": 2800,
+      "confidence": 7.57
+    },
+    {
+      "time": 5.931,
+      "firingHz": 141.0,
+      "rpm": 2820,
+      "confidence": 7.851
+    },
+    {
+      "time": 5.973,
+      "firingHz": 143.0,
+      "rpm": 2860,
+      "confidence": 8.203
+    },
+    {
+      "time": 6.016,
+      "firingHz": 143.0,
+      "rpm": 2860,
+      "confidence": 8.699
+    },
+    {
+      "time": 6.059,
+      "firingHz": 144.0,
+      "rpm": 2880,
+      "confidence": 8.66
+    },
+    {
+      "time": 6.101,
+      "firingHz": 146.0,
+      "rpm": 2920,
+      "confidence": 8.296
+    },
+    {
+      "time": 6.144,
+      "firingHz": 146.0,
+      "rpm": 2920,
+      "confidence": 8.33
+    },
+    {
+      "time": 6.187,
+      "firingHz": 147.0,
+      "rpm": 2940,
+      "confidence": 8.926
+    },
+    {
+      "time": 6.229,
+      "firingHz": 148.0,
+      "rpm": 2960,
+      "confidence": 9.149
+    },
+    {
+      "time": 6.272,
+      "firingHz": 149.0,
+      "rpm": 2980,
+      "confidence": 9.304
+    },
+    {
+      "time": 6.315,
+      "firingHz": 149.0,
+      "rpm": 2980,
+      "confidence": 9.473
+    },
+    {
+      "time": 6.357,
+      "firingHz": 152.0,
+      "rpm": 3040,
+      "confidence": 9.277
+    },
+    {
+      "time": 6.4,
+      "firingHz": 152.0,
+      "rpm": 3040,
+      "confidence": 10.284
+    },
+    {
+      "time": 6.443,
+      "firingHz": 152.0,
+      "rpm": 3040,
+      "confidence": 10.329
+    },
+    {
+      "time": 6.485,
+      "firingHz": 153.0,
+      "rpm": 3060,
+      "confidence": 10.034
+    },
+    {
+      "time": 6.528,
+      "firingHz": 155.0,
+      "rpm": 3100,
+      "confidence": 9.732
+    },
+    {
+      "time": 6.571,
+      "firingHz": 155.0,
+      "rpm": 3100,
+      "confidence": 10.014
+    },
+    {
+      "time": 6.613,
+      "firingHz": 156.0,
+      "rpm": 3120,
+      "confidence": 10.101
+    },
+    {
+      "time": 6.656,
+      "firingHz": 158.0,
+      "rpm": 3160,
+      "confidence": 10.545
+    },
+    {
+      "time": 6.699,
+      "firingHz": 158.0,
+      "rpm": 3160,
+      "confidence": 10.633
+    },
+    {
+      "time": 6.741,
+      "firingHz": 159.0,
+      "rpm": 3180,
+      "confidence": 10.052
+    },
+    {
+      "time": 6.784,
+      "firingHz": 161.0,
+      "rpm": 3220,
+      "confidence": 10.105
+    },
+    {
+      "time": 6.827,
+      "firingHz": 161.0,
+      "rpm": 3220,
+      "confidence": 9.846
+    },
+    {
+      "time": 6.869,
+      "firingHz": 163.0,
+      "rpm": 3260,
+      "confidence": 9.715
+    },
+    {
+      "time": 6.912,
+      "firingHz": 164.0,
+      "rpm": 3280,
+      "confidence": 9.652
+    },
+    {
+      "time": 6.955,
+      "firingHz": 165.0,
+      "rpm": 3300,
+      "confidence": 9.294
+    },
+    {
+      "time": 6.997,
+      "firingHz": 166.0,
+      "rpm": 3320,
+      "confidence": 8.977
+    },
+    {
+      "time": 7.04,
+      "firingHz": 168.0,
+      "rpm": 3360,
+      "confidence": 9.132
+    },
+    {
+      "time": 7.083,
+      "firingHz": 168.0,
+      "rpm": 3360,
+      "confidence": 9.487
+    },
+    {
+      "time": 7.125,
+      "firingHz": 168.0,
+      "rpm": 3360,
+      "confidence": 9.241
+    },
+    {
+      "time": 7.168,
+      "firingHz": 172.0,
+      "rpm": 3440,
+      "confidence": 9.773
+    },
+    {
+      "time": 7.211,
+      "firingHz": 172.0,
+      "rpm": 3440,
+      "confidence": 10.722
+    },
+    {
+      "time": 7.253,
+      "firingHz": 173.0,
+      "rpm": 3460,
+      "confidence": 10.522
+    },
+    {
+      "time": 7.296,
+      "firingHz": 173.0,
+      "rpm": 3460,
+      "confidence": 10.258
+    },
+    {
+      "time": 7.339,
+      "firingHz": 175.0,
+      "rpm": 3500,
+      "confidence": 9.806
+    },
+    {
+      "time": 7.381,
+      "firingHz": 176.0,
+      "rpm": 3520,
+      "confidence": 9.285
+    },
+    {
+      "time": 7.424,
+      "firingHz": 178.0,
+      "rpm": 3560,
+      "confidence": 9.614
+    },
+    {
+      "time": 7.467,
+      "firingHz": 178.0,
+      "rpm": 3560,
+      "confidence": 9.34
+    },
+    {
+      "time": 7.509,
+      "firingHz": 178.0,
+      "rpm": 3560,
+      "confidence": 8.272
+    },
+    {
+      "time": 7.552,
+      "firingHz": 182.0,
+      "rpm": 3640,
+      "confidence": 8.78
+    },
+    {
+      "time": 7.595,
+      "firingHz": 182.0,
+      "rpm": 3640,
+      "confidence": 8.864
+    },
+    {
+      "time": 7.637,
+      "firingHz": 184.0,
+      "rpm": 3680,
+      "confidence": 8.217
+    },
+    {
+      "time": 7.68,
+      "firingHz": 184.0,
+      "rpm": 3680,
+      "confidence": 7.651
+    },
+    {
+      "time": 7.723,
+      "firingHz": 187.0,
+      "rpm": 3740,
+      "confidence": 6.373
+    },
+    {
+      "time": 7.765,
+      "firingHz": 190.0,
+      "rpm": 3800,
+      "confidence": 6.294
+    },
+    {
+      "time": 7.808,
+      "firingHz": 191.0,
+      "rpm": 3820,
+      "confidence": 7.622
+    },
+    {
+      "time": 7.851,
+      "firingHz": 193.0,
+      "rpm": 3860,
+      "confidence": 8.252
+    },
+    {
+      "time": 7.893,
+      "firingHz": 193.0,
+      "rpm": 3860,
+      "confidence": 9.245
+    },
+    {
+      "time": 7.936,
+      "firingHz": 193.0,
+      "rpm": 3860,
+      "confidence": 9.227
+    },
+    {
+      "time": 7.979,
+      "firingHz": 197.0,
+      "rpm": 3940,
+      "confidence": 10.032
+    },
+    {
+      "time": 8.021,
+      "firingHz": 197.0,
+      "rpm": 3940,
+      "confidence": 10.857
+    },
+    {
+      "time": 8.064,
+      "firingHz": 198.0,
+      "rpm": 3960,
+      "confidence": 11.124
+    },
+    {
+      "time": 8.107,
+      "firingHz": 199.0,
+      "rpm": 3980,
+      "confidence": 11.264
+    },
+    {
+      "time": 8.149,
+      "firingHz": 201.0,
+      "rpm": 4020,
+      "confidence": 10.571
+    },
+    {
+      "time": 8.192,
+      "firingHz": 203.0,
+      "rpm": 4060,
+      "confidence": 10.297
+    },
+    {
+      "time": 8.235,
+      "firingHz": 203.0,
+      "rpm": 4060,
+      "confidence": 9.454
+    },
+    {
+      "time": 8.277,
+      "firingHz": 207.0,
+      "rpm": 4140,
+      "confidence": 9.36
+    },
+    {
+      "time": 8.32,
+      "firingHz": 207.0,
+      "rpm": 4140,
+      "confidence": 8.95
+    },
+    {
+      "time": 8.363,
+      "firingHz": 212.0,
+      "rpm": 4240,
+      "confidence": 8.692
+    },
+    {
+      "time": 8.405,
+      "firingHz": 214.0,
+      "rpm": 4280,
+      "confidence": 9.001
+    },
+    {
+      "time": 8.448,
+      "firingHz": 214.0,
+      "rpm": 4280,
+      "confidence": 9.494
+    },
+    {
+      "time": 8.491,
+      "firingHz": 215.0,
+      "rpm": 4300,
+      "confidence": 9.336
+    },
+    {
+      "time": 8.533,
+      "firingHz": 216.0,
+      "rpm": 4320,
+      "confidence": 8.491
+    },
+    {
+      "time": 8.576,
+      "firingHz": 219.0,
+      "rpm": 4380,
+      "confidence": 7.903
+    },
+    {
+      "time": 8.619,
+      "firingHz": 221.0,
+      "rpm": 4420,
+      "confidence": 8.339
+    },
+    {
+      "time": 8.661,
+      "firingHz": 223.0,
+      "rpm": 4460,
+      "confidence": 8.768
+    },
+    {
+      "time": 8.704,
+      "firingHz": 223.0,
+      "rpm": 4460,
+      "confidence": 8.639
+    },
+    {
+      "time": 8.747,
+      "firingHz": 223.0,
+      "rpm": 4460,
+      "confidence": 8.171
+    },
+    {
+      "time": 8.789,
+      "firingHz": 223.0,
+      "rpm": 4460,
+      "confidence": 7.514
+    },
+    {
+      "time": 8.832,
+      "firingHz": 223.0,
+      "rpm": 4460,
+      "confidence": 6.367
+    },
+    {
+      "time": 8.875,
+      "firingHz": 216.0,
+      "rpm": 4320,
+      "confidence": 5.444
+    },
+    {
+      "time": 8.917,
+      "firingHz": 216.0,
+      "rpm": 4320,
+      "confidence": 5.742
+    },
+    {
+      "time": 8.96,
+      "firingHz": 215.0,
+      "rpm": 4300,
+      "confidence": 5.726
+    },
+    {
+      "time": 9.003,
+      "firingHz": 182.0,
+      "rpm": 3640,
+      "confidence": 5.372
+    },
+    {
+      "time": 9.045,
+      "firingHz": 182.0,
+      "rpm": 3640,
+      "confidence": 6.282
+    },
+    {
+      "time": 9.088,
+      "firingHz": 182.0,
+      "rpm": 3640,
+      "confidence": 6.54
+    },
+    {
+      "time": 9.131,
+      "firingHz": 182.0,
+      "rpm": 3640,
+      "confidence": 6.094
+    },
+    {
+      "time": 9.173,
+      "firingHz": 182.0,
+      "rpm": 3640,
+      "confidence": 5.117
+    },
+    {
+      "time": 9.216,
+      "firingHz": 182.0,
+      "rpm": 3640,
+      "confidence": 4.235
+    },
+    {
+      "time": 9.259,
+      "firingHz": 182.0,
+      "rpm": 3640,
+      "confidence": 4.007
+    },
+    {
+      "time": 9.301,
+      "firingHz": 182.0,
+      "rpm": 3640,
+      "confidence": 4.267
+    },
+    {
+      "time": 9.344,
+      "firingHz": 214.0,
+      "rpm": 4280,
+      "confidence": 4.541
+    },
+    {
+      "time": 9.387,
+      "firingHz": 214.0,
+      "rpm": 4280,
+      "confidence": 5.921
+    },
+    {
+      "time": 9.429,
+      "firingHz": 214.0,
+      "rpm": 4280,
+      "confidence": 6.99
+    },
+    {
+      "time": 9.472,
+      "firingHz": 214.0,
+      "rpm": 4280,
+      "confidence": 7.664
+    },
+    {
+      "time": 9.515,
+      "firingHz": 214.0,
+      "rpm": 4280,
+      "confidence": 7.397
+    },
+    {
+      "time": 9.557,
+      "firingHz": 178.0,
+      "rpm": 3560,
+      "confidence": 6.942
+    },
+    {
+      "time": 9.6,
+      "firingHz": 177.0,
+      "rpm": 3540,
+      "confidence": 7.334
+    },
+    {
+      "time": 9.643,
+      "firingHz": 177.0,
+      "rpm": 3540,
+      "confidence": 7.779
+    },
+    {
+      "time": 9.685,
+      "firingHz": 177.0,
+      "rpm": 3540,
+      "confidence": 7.564
+    },
+    {
+      "time": 9.728,
+      "firingHz": 176.0,
+      "rpm": 3520,
+      "confidence": 7.532
+    },
+    {
+      "time": 9.771,
+      "firingHz": 176.0,
+      "rpm": 3520,
+      "confidence": 7.849
+    },
+    {
+      "time": 9.813,
+      "firingHz": 176.0,
+      "rpm": 3520,
+      "confidence": 7.6
+    },
+    {
+      "time": 9.856,
+      "firingHz": 175.0,
+      "rpm": 3500,
+      "confidence": 7.212
+    },
+    {
+      "time": 9.899,
+      "firingHz": 175.0,
+      "rpm": 3500,
+      "confidence": 6.845
+    },
+    {
+      "time": 9.941,
+      "firingHz": 175.0,
+      "rpm": 3500,
+      "confidence": 6.255
+    },
+    {
+      "time": 9.984,
+      "firingHz": 175.0,
+      "rpm": 3500,
+      "confidence": 5.542
+    },
+    {
+      "time": 10.027,
+      "firingHz": 177.0,
+      "rpm": 3540,
+      "confidence": 4.973
+    },
+    {
+      "time": 10.069,
+      "firingHz": 179.0,
+      "rpm": 3580,
+      "confidence": 6.541
+    },
+    {
+      "time": 10.112,
+      "firingHz": 179.0,
+      "rpm": 3580,
+      "confidence": 7.882
+    },
+    {
+      "time": 10.155,
+      "firingHz": 180.0,
+      "rpm": 3600,
+      "confidence": 8.327
+    },
+    {
+      "time": 10.197,
+      "firingHz": 182.0,
+      "rpm": 3640,
+      "confidence": 9.398
+    },
+    {
+      "time": 10.24,
+      "firingHz": 183.0,
+      "rpm": 3660,
+      "confidence": 9.805
+    },
+    {
+      "time": 10.283,
+      "firingHz": 183.0,
+      "rpm": 3660,
+      "confidence": 9.245
+    },
+    {
+      "time": 10.325,
+      "firingHz": 185.0,
+      "rpm": 3700,
+      "confidence": 8.784
+    },
+    {
+      "time": 10.368,
+      "firingHz": 186.0,
+      "rpm": 3720,
+      "confidence": 8.898
+    },
+    {
+      "time": 10.411,
+      "firingHz": 189.0,
+      "rpm": 3780,
+      "confidence": 8.546
+    },
+    {
+      "time": 10.453,
+      "firingHz": 190.0,
+      "rpm": 3800,
+      "confidence": 9.238
+    },
+    {
+      "time": 10.496,
+      "firingHz": 191.0,
+      "rpm": 3820,
+      "confidence": 9.818
+    },
+    {
+      "time": 10.539,
+      "firingHz": 192.0,
+      "rpm": 3840,
+      "confidence": 10.235
+    },
+    {
+      "time": 10.581,
+      "firingHz": 193.0,
+      "rpm": 3860,
+      "confidence": 10.098
+    },
+    {
+      "time": 10.624,
+      "firingHz": 195.0,
+      "rpm": 3900,
+      "confidence": 10.271
+    },
+    {
+      "time": 10.667,
+      "firingHz": 198.0,
+      "rpm": 3960,
+      "confidence": 10.406
+    },
+    {
+      "time": 10.709,
+      "firingHz": 198.0,
+      "rpm": 3960,
+      "confidence": 10.483
+    },
+    {
+      "time": 10.752,
+      "firingHz": 198.5,
+      "rpm": 3970,
+      "confidence": 10.109
+    },
+    {
+      "time": 10.795,
+      "firingHz": 199.0,
+      "rpm": 3980,
+      "confidence": 9.806
+    }
+  ]
+}

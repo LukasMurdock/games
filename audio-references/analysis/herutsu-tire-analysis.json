@@ -1,0 +1,59 @@
+{
+  "herutsu-01-skid-sequence": {
+    "durationSeconds": 14.4,
+    "activeRmsDb": -15.4,
+    "spectralCentroidHz": 1050,
+    "centroidRangeHz": [
+      981,
+      1287
+    ],
+    "prominentBandsHz": [
+      992,
+      1117,
+      1289,
+      1797,
+      1938,
+      820
+    ],
+    "spectralFlatness": 0.201,
+    "dominantEnvelopeModulationHz": 2.2
+  },
+  "herutsu-02-skid-sequence": {
+    "durationSeconds": 6.6,
+    "activeRmsDb": -20.0,
+    "spectralCentroidHz": 966,
+    "centroidRangeHz": [
+      861,
+      1142
+    ],
+    "prominentBandsHz": [
+      820,
+      969,
+      1711,
+      1586,
+      1109,
+      1242
+    ],
+    "spectralFlatness": 0.238,
+    "dominantEnvelopeModulationHz": 2.1
+  },
+  "herutsu-03-skid-sequence": {
+    "durationSeconds": 10.1,
+    "activeRmsDb": -13.3,
+    "spectralCentroidHz": 1177,
+    "centroidRangeHz": [
+      1100,
+      1257
+    ],
+    "prominentBandsHz": [
+      1062,
+      1211,
+      1344,
+      914,
+      1555,
+      1906
+    ],
+    "spectralFlatness": 0.168,
+    "dominantEnvelopeModulationHz": 11.8
+  }
+}

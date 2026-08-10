@@ -40,6 +40,7 @@
   h1, h2 { margin: 0; letter-spacing: -0.035em; }
   h1 { font-size: clamp(30px, 5vw, 52px); }
   h2 { font-size: 23px; }
+  .topbar nav { display: flex; gap: 14px; }
   .topbar a { color: #c8d8c1; font-size: 13px; }
 
   main {

@@ -112,6 +112,7 @@ try {
   await testPublicDrivingMultiplayer(browser);
   await testMobileMultiplayerLayout(browser);
   await testSinglePlayerDriving(browser);
+  await testManeuverSoundLab(browser);
 } catch (error) {
   if (serverOutput) console.error(serverOutput);
   throw error;
@@ -386,6 +387,40 @@ async function testMobileMultiplayerLayout(browserInstance) {
   if (landscapeOverflow > 1) throw new Error("Landscape multiplayer pause layout overflows horizontally.");
   await context.close();
   console.log("Mobile multiplayer pause layout passed: portrait, landscape, groups, and diagnostics safe area.");
+}
+
+async function testManeuverSoundLab(browserInstance) {
+  const context = await browserInstance.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await context.newPage();
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.goto(`http://127.0.0.1:${port}/maneuver-lab/`);
+  await page.waitForSelector("#path-canvas");
+  if (await page.locator("[data-scenario]").count() !== 4) {
+    throw new Error("Maneuver Sound Lab did not expose all production scenarios.");
+  }
+  const launchPath = await page.locator("#path-canvas").screenshot();
+  await page.click('[data-scenario="idle"]');
+  await page.click("#play-pause");
+  await page.waitForFunction(() => Number(document.querySelector("#time-readout")?.textContent) > 0.25);
+  if (
+    await page.textContent("#segment-readout") !== "Idle"
+    || Number(await page.textContent("#speed-readout")) !== 0
+  ) throw new Error("Maneuver Sound Lab idle trace advanced the vehicle.");
+  await page.click("#play-pause");
+  await page.click('[data-scenario="linked"]');
+  await page.locator("#timeline").evaluate((input) => {
+    input.value = "7";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  const linkedPath = await page.locator("#path-canvas").screenshot();
+  if (launchPath.equals(linkedPath)) throw new Error("Maneuver traces did not change with the selected scenario.");
+  await page.click('[data-scenario="launch"]');
+  await page.click("#play-pause");
+  await page.waitForFunction(() => Number(document.querySelector("#speed-readout")?.textContent) > 1);
+  if (errors.length > 0) throw new Error(`Maneuver Sound Lab page error: ${errors.join("; ")}`);
+  await context.close();
+  console.log("Maneuver Sound Lab passed: production traces, timeline, playback, and telemetry.");
 }
 
 async function testSinglePlayerDriving(browserInstance) {

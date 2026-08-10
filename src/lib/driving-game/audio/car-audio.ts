@@ -38,6 +38,7 @@ export type CarAudio = {
   reset: () => void;
   setPaused: (paused: boolean) => void;
   setTransmissionTuning: (tuning: TransmissionTuning) => void;
+  whenReady: () => Promise<void>;
   getTelemetry: () => Readonly<CarAudioTelemetry>;
   getAnalyser: () => AnalyserNode;
   destroy: () => void;
@@ -124,6 +125,8 @@ export function createCarAudio(
     [ENGINE_WORKLET_SOURCE, "\n", TIRE_WORKLET_SOURCE],
     { type: "text/javascript" },
   ));
+  let resolveReady: () => void = () => undefined;
+  const ready = new Promise<void>((resolve) => { resolveReady = resolve; });
   void context.audioWorklet.addModule(workletUrl).then(() => {
     URL.revokeObjectURL(workletUrl);
     if (audioDestroyed) return;
@@ -149,7 +152,7 @@ export function createCarAudio(
       phase: "grip",
       onPavement: true,
     });
-  }).catch(() => URL.revokeObjectURL(workletUrl));
+  }).catch(() => URL.revokeObjectURL(workletUrl)).finally(resolveReady);
 
   let gear = 0;
   let pendingGear = 0;
@@ -504,6 +507,7 @@ export function createCarAudio(
       pendingGear = gear;
       pendingGearTime = 0;
     },
+    whenReady: () => ready,
     getTelemetry: () => telemetry,
     getAnalyser: () => analyser,
     destroy() {

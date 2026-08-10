@@ -6,4 +6,7 @@ dist/
 !.dev.vars.example
 .DS_Store
 coverage/
+.venv/
+__pycache__/
+*.pyc
 *.log

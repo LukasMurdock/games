@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Drift engine reference audition</title>
+  <style>
+    :root { color-scheme: dark; font-family: ui-sans-serif, system-ui, sans-serif; background: #101411; color: #f3f5ef; }
+    body { max-width: 1100px; margin: auto; padding: 48px 24px 96px; }
+    h1 { margin-bottom: 8px; font-size: clamp(32px, 6vw, 64px); letter-spacing: -.05em; }
+    .intro { color: #aab4aa; line-height: 1.6; }
+    .grid { display: grid; gap: 24px; margin-top: 40px; }
+    article { padding: 22px; border: 1px solid #303a31; border-radius: 18px; background: #171d18; }
+    h2 { margin: 0 0 5px; font-size: 20px; }
+    p { margin: 0 0 16px; color: #aab4aa; }
+    audio { width: 100%; margin-bottom: 18px; }
+    details { margin-top: 10px; }
+    summary { cursor: pointer; color: #cbd6c5; }
+    img { display: block; width: 100%; margin-top: 12px; border-radius: 8px; background: #000; }
+  </style>
+</head>
+<body>
+  <h1>Engine reference audition</h1>
+  <p class="intro">Candidate excerpts only—nothing here is integrated into the game. Compare exterior tone, dyno harmonics, drift load behavior, shifts, spool, and lift-off.</p>
+  <main class="grid" id="clips"></main>
+  <script>
+    const clips = [
+      ["NM2255 — staging and launch", "00:22–00:42", "nm2255-01-staging-launch"],
+      ["NM2255 — first drift pass", "00:47–01:11", "nm2255-02-first-drift-pass"],
+      ["NM2255 — loaded close pass", "02:22–02:42", "nm2255-03-loaded-close-pass"],
+      ["NM2255 — drift sequence", "02:46–03:10", "nm2255-04-drift-sequence"],
+      ["NM2255 — late close pass", "04:42–05:06", "nm2255-05-late-close-pass"],
+      ["Garrett — dyno pull", "00:05–00:16", "garrett-01-dyno-pull"],
+      ["Garrett — high-load tail", "00:17–00:27", "garrett-02-high-load-tail"],
+      ["Sceriffo — early drift behavior", "00:42–01:12", "sceriffo-01-early-drift-behavior"],
+      ["Sceriffo — mid drift behavior", "02:00–02:30", "sceriffo-02-mid-drift-behavior"],
+      ["Sceriffo — late drift behavior", "03:48–04:18", "sceriffo-03-late-drift-behavior"],
+      ["Herutsu — skid sequence one", "00:00–00:14.4", "herutsu-01-skid-sequence"],
+      ["Herutsu — skid sequence two", "00:15.75–00:22.35", "herutsu-02-skid-sequence"],
+      ["Herutsu — skid sequence three", "00:23.3–00:33.4", "herutsu-03-skid-sequence"],
+    ];
+    const root = document.querySelector("#clips");
+    for (const [title, range, stem] of clips) {
+      const article = document.createElement("article");
+      article.innerHTML = `
+        <h2>${title}</h2><p>${range}</p>
+        <audio controls preload="metadata" src="clips/${stem}.wav"></audio>
+        <img src="analysis/${stem}-waveform.png" alt="Waveform for ${title}">
+        <details><summary>Show logarithmic spectrogram</summary>
+          <img loading="lazy" src="analysis/${stem}-spectrum.png" alt="Spectrogram for ${title}">
+        </details>`;
+      root.append(article);
+    }
+  </script>
+</body>
+</html>
