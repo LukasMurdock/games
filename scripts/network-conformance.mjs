@@ -130,7 +130,13 @@ async function testPublicDrivingMultiplayer(browserInstance) {
   const client = await clientContext.newPage();
   await host.goto(`http://127.0.0.1:${port}/?multiplayer=host`);
   await host.waitForSelector(".multiplayer-host-controls");
-  await host.fill(".multiplayer-host-controls input", "Jamie");
+  const friendName = host.locator(".multiplayer-host-controls input");
+  await friendName.focus();
+  await host.keyboard.press("KeyP");
+  if (await friendName.inputValue() !== "p" || await host.getAttribute("#pause-button", "aria-pressed") !== "true") {
+    throw new Error("Typing P in the friend-name field triggered the pause shortcut.");
+  }
+  await friendName.fill("Jamie");
   await host.click(".multiplayer-create-invite");
   const inviteButton = host.locator(".multiplayer-slot button[data-url]");
   await inviteButton.waitFor({ state: "visible", timeout: 20_000 });

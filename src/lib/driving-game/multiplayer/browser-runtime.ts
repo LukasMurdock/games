@@ -412,7 +412,13 @@ function startPlayLoop(
   const resumeAction = canPause ? togglePause : () => { localMenuOpen = false; };
   pauseButton?.addEventListener("click", pauseAction);
   resumeButton?.addEventListener("click", resumeAction);
+  const isTypingTarget = (target: EventTarget | null) => target instanceof HTMLElement
+    && target.closest("input, textarea, select, [contenteditable='true']") !== null;
+  const isButtonActivation = (event: KeyboardEvent) => event.target instanceof HTMLElement
+    && event.target.closest("button, a") !== null
+    && (event.code === "Space" || event.code === "Enter");
   const onKeyDown = (event: KeyboardEvent) => {
+    if (isTypingTarget(event.target) || isButtonActivation(event)) return;
     ensureAudio();
     if (!event.repeat && event.code === "KeyC") {
       event.preventDefault();
@@ -431,6 +437,7 @@ function startPlayLoop(
     setControl(control, true);
   };
   const onKeyUp = (event: KeyboardEvent) => {
+    if (isTypingTarget(event.target) || isButtonActivation(event)) return;
     const control = keyControl(event.code);
     if (control) setControl(control, false);
   };
