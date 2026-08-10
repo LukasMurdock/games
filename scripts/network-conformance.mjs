@@ -130,7 +130,7 @@ async function testPublicDrivingMultiplayer(browserInstance) {
   await host.goto(`http://127.0.0.1:${port}/?multiplayer=host`);
   await host.waitForSelector(".multiplayer-host-controls");
   await host.fill(".multiplayer-host-controls input", "Jamie");
-  await host.click(".multiplayer-host-controls > button");
+  await host.click(".multiplayer-create-invite");
   const inviteButton = host.locator(".multiplayer-slot button[data-url]");
   await inviteButton.waitFor({ state: "visible", timeout: 20_000 });
   const inviteUrl = await inviteButton.getAttribute("data-url");
@@ -244,7 +244,7 @@ async function testPublicDrivingMultiplayer(browserInstance) {
 
   await host.keyboard.press("Escape");
   await host.fill(".multiplayer-host-controls input", "Taylor");
-  await host.click(".multiplayer-host-controls > button");
+  await host.click(".multiplayer-create-invite");
   await host.waitForFunction(
     () => document.querySelectorAll(".multiplayer-slot button[data-url]").length === 2,
     undefined,

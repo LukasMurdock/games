@@ -517,7 +517,8 @@
     user-select: text;
   }
   .multiplayer-body button,
-  .multiplayer-slot button {
+  .multiplayer-slot button,
+  .multiplayer-card > button {
     min-height: 38px;
     padding: 0 13px;
     border: 1px solid rgba(185, 217, 157, 0.42);
@@ -526,10 +527,36 @@
     color: #eef8e6;
     cursor: pointer;
   }
+  .multiplayer-card > .multiplayer-audio,
+  .multiplayer-card > .multiplayer-leave { margin-top: 12px; }
+  .multiplayer-card > .multiplayer-leave { margin-left: 6px; }
   .multiplayer-card button.is-copied {
     border-color: rgba(126, 231, 160, 0.75);
     background: rgba(65, 155, 98, 0.3);
     color: #e7ffed;
+  }
+  .multiplayer-host-controls { display: grid; gap: 16px; }
+  .multiplayer-control-group {
+    display: grid;
+    gap: 10px;
+    padding: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.11);
+    border-radius: 16px;
+  }
+  .multiplayer-configuration { background: rgba(185, 217, 157, 0.055); }
+  .multiplayer-invites { background: rgba(255, 255, 255, 0.025); }
+  .multiplayer-group-heading { margin-bottom: 2px; }
+  .multiplayer-group-heading h2 {
+    margin: 0 0 3px;
+    color: #fff;
+    font-size: 14px;
+    letter-spacing: -0.01em;
+  }
+  .multiplayer-group-heading p {
+    margin: 0;
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 10px;
+    line-height: 1.4;
   }
   .multiplayer-host-controls label { display: grid; gap: 6px; color: rgba(255, 255, 255, 0.72); font-size: 12px; }
   .multiplayer-host-controls label span { opacity: 0.6; }
@@ -542,9 +569,8 @@
     background: rgba(0, 0, 0, 0.22);
     color: #fff;
   }
-  .multiplayer-host-controls { display: grid; gap: 10px; }
-  .multiplayer-host-controls > button { margin-top: 10px; }
-  .multiplayer-slots { display: grid; gap: 8px; margin-top: 14px; }
+  .multiplayer-create-invite { width: 100%; margin-top: 2px; }
+  .multiplayer-slots { display: grid; gap: 8px; margin-top: 4px; }
   .multiplayer-slot {
     display: grid;
     grid-template-columns: 1fr auto;

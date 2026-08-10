@@ -63,11 +63,23 @@ export async function startHostedDrivingGame(root: HTMLElement) {
   const controls = document.createElement("div");
   controls.className = "multiplayer-host-controls";
   controls.innerHTML = `
-    <label>Mode <select disabled><option>Cruise</option></select></label>
-    <label>Map <select class="multiplayer-map"></select></label>
-    <label>Friend name <span>optional, local only</span><input maxlength="40" autocomplete="off"></label>
-    <button type="button">Create invite</button>
-    <div class="multiplayer-slots"></div>
+    <section class="multiplayer-control-group multiplayer-configuration" aria-labelledby="multiplayer-configuration-title">
+      <div class="multiplayer-group-heading">
+        <h2 id="multiplayer-configuration-title">Game configuration</h2>
+        <p>Applies to everyone when the host resumes.</p>
+      </div>
+      <label>Mode <select disabled><option>Cruise</option></select></label>
+      <label>Map <select class="multiplayer-map"></select></label>
+    </section>
+    <section class="multiplayer-control-group multiplayer-invites" aria-labelledby="multiplayer-invites-title">
+      <div class="multiplayer-group-heading">
+        <h2 id="multiplayer-invites-title">Invite players</h2>
+        <p>Create one private connection link for each friend.</p>
+      </div>
+      <label>Friend name <span>optional, local only</span><input maxlength="40" autocomplete="off"></label>
+      <button class="multiplayer-create-invite" type="button">Create invite</button>
+      <div class="multiplayer-slots"></div>
+    </section>
   `;
   overlay.body.append(controls);
   const mapSelect = controls.querySelector(".multiplayer-map") as HTMLSelectElement;
@@ -107,7 +119,7 @@ export async function startHostedDrivingGame(root: HTMLElement) {
     }
   });
   const input = controls.querySelector("input") as HTMLInputElement;
-  const createButton = controls.querySelector("button") as HTMLButtonElement;
+  const createButton = controls.querySelector(".multiplayer-create-invite") as HTMLButtonElement;
   const slotsRoot = controls.querySelector(".multiplayer-slots") as HTMLElement;
   createButton.addEventListener("click", () => {
     createButton.disabled = true;
