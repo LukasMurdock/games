@@ -15,6 +15,9 @@ export type AuthoritativeDrivingConfig = {
   controlMode: ControlMode;
   spawns: readonly { x: number; z: number; heading: number }[];
   carRadius?: number;
+  mapId?: string;
+  modeId?: string;
+  profileId?: string;
 };
 
 export type AuthoritativeDrivingInput = {
@@ -22,6 +25,7 @@ export type AuthoritativeDrivingInput = {
   throttle: number;
   brake: boolean;
   handbrake: boolean;
+  readyEpoch?: number;
 };
 
 export type AuthoritativeDrivingPlayer = {
@@ -34,10 +38,17 @@ export type AuthoritativeDrivingPlayer = {
   driftPhase: DriftPhase;
   boosting: boolean;
   exitPulse: number;
+  steering?: number;
 };
 
 export type AuthoritativeDrivingSnapshot = {
   players: AuthoritativeDrivingPlayer[];
+  configurationEpoch?: number;
+  paused?: boolean;
+  mapId?: string;
+  modeId?: string;
+  profileId?: string;
+  controlMode?: ControlMode;
 };
 
 export type AuthoritativeDrivingEvent =
@@ -48,11 +59,20 @@ export type AuthoritativeDrivingEvent =
       playerId: string;
       otherPlayerId?: string;
       terminal: boolean;
+    }
+  | {
+      type: "configuration";
+      configurationEpoch: number;
+      mapId: string;
+      modeId: string;
+      profileId: string;
+      controlMode: ControlMode;
     };
 
 type PlayerRecord = {
   vehicle: DrivingVehicleSimulation;
   spawnIndex: number;
+  steering: number;
 };
 
 export type AuthoritativeDrivingState = {
@@ -61,6 +81,10 @@ export type AuthoritativeDrivingState = {
   pendingEvents: AuthoritativeDrivingEvent[];
   availableSpawns: number[];
   carRadius: number;
+  configurationEpoch: number;
+  paused: boolean;
+  readyPlayers: Set<string>;
+  awaitingReadiness: boolean;
 };
 
 export const authoritativeDrivingSimulation: GameSimulation<
@@ -95,6 +119,10 @@ export const authoritativeDrivingSimulation: GameSimulation<
       pendingEvents: [],
       availableSpawns: config.spawns.map((_, index) => index),
       carRadius,
+      configurationEpoch: 0,
+      paused: false,
+      readyPlayers: new Set(),
+      awaitingReadiness: false,
     };
   },
 
@@ -112,7 +140,7 @@ export const authoritativeDrivingSimulation: GameSimulation<
       onEvent: (event) => enqueueVehicleEvent(state, playerId, event),
       onResetRequested: () => vehicle.reset(),
     });
-    state.players.set(playerId, { vehicle, spawnIndex });
+    state.players.set(playerId, { vehicle, spawnIndex, steering: 0 });
     return [{ type: "joined", playerId }];
   },
 
@@ -120,6 +148,7 @@ export const authoritativeDrivingSimulation: GameSimulation<
     const record = state.players.get(playerId);
     if (!record) return;
     state.players.delete(playerId);
+    state.readyPlayers.delete(playerId);
     insertSorted(state.availableSpawns, record.spawnIndex);
     return [{ type: "left", playerId }];
   },
@@ -127,7 +156,10 @@ export const authoritativeDrivingSimulation: GameSimulation<
   input(state, playerId, input) {
     const record = state.players.get(playerId);
     if (!record) return;
+    if (input.readyEpoch === state.configurationEpoch) state.readyPlayers.add(playerId);
     const steering = input.steering === -1 || input.steering === 1 ? input.steering : 0;
+    // Network intent uses -1 for left; vehicle presentation uses +1 for left.
+    record.steering = -steering;
     record.vehicle.setControl("left", steering === -1);
     record.vehicle.setControl("right", steering === 1);
     record.vehicle.setControl("accelerate", clamp(finite(input.throttle), 0, 1) > 0.1);
@@ -136,6 +168,7 @@ export const authoritativeDrivingSimulation: GameSimulation<
   },
 
   tick(state, dt) {
+    if (state.paused) return;
     for (const record of state.players.values()) record.vehicle.update(dt);
     resolveVehicleCollisions(state);
     return state.pendingEvents.splice(0);
@@ -145,10 +178,74 @@ export const authoritativeDrivingSimulation: GameSimulation<
     return {
       players: [...state.players.entries()]
         .sort(([left], [right]) => left.localeCompare(right))
-        .map(([playerId, record]) => playerSnapshot(playerId, record.vehicle.snapshot())),
+        .map(([playerId, record]) => ({
+          ...playerSnapshot(playerId, record.vehicle.snapshot()),
+          steering: record.steering,
+        })),
+      configurationEpoch: state.configurationEpoch,
+      paused: state.paused,
+      mapId: state.config.mapId,
+      modeId: state.config.modeId,
+      profileId: state.config.profileId,
+      controlMode: state.config.controlMode,
     };
   },
 };
+
+export function setAuthoritativeDrivingPaused(
+  state: AuthoritativeDrivingState,
+  paused: boolean,
+) {
+  if (!paused && state.awaitingReadiness && !areAuthoritativeDrivingPlayersReady(state)) {
+    throw new Error("All connected players must load the configuration before resume.");
+  }
+  state.paused = paused;
+  if (!paused) state.awaitingReadiness = false;
+}
+
+export function reconfigureAuthoritativeDriving(
+  state: AuthoritativeDrivingState,
+  config: AuthoritativeDrivingConfig,
+) {
+  if (!config.mapId || !config.modeId || !config.profileId) {
+    throw new Error("A reconfiguration requires map, mode, and profile IDs.");
+  }
+  const validated = authoritativeDrivingSimulation.create(config);
+  if (config.spawns.length < state.players.size) {
+    throw new Error("The new configuration does not have enough spawn points.");
+  }
+  state.config = config;
+  state.carRadius = validated.carRadius;
+  state.configurationEpoch += 1;
+  state.paused = true;
+  state.awaitingReadiness = true;
+  state.readyPlayers.clear();
+  const usedSpawns = new Set<number>();
+  for (const record of state.players.values()) {
+    usedSpawns.add(record.spawnIndex);
+    const spawn = config.spawns[record.spawnIndex];
+    record.vehicle.setWorld({ ...config.world, spawn });
+    record.vehicle.setDrivingProfile(config.profile);
+    record.vehicle.setControlMode(config.controlMode);
+    record.vehicle.reset();
+    record.steering = 0;
+  }
+  state.availableSpawns = config.spawns
+    .map((_, index) => index)
+    .filter((index) => !usedSpawns.has(index));
+  return {
+    type: "configuration" as const,
+    configurationEpoch: state.configurationEpoch,
+    mapId: config.mapId,
+    modeId: config.modeId,
+    profileId: config.profileId,
+    controlMode: config.controlMode,
+  };
+}
+
+export function areAuthoritativeDrivingPlayersReady(state: AuthoritativeDrivingState) {
+  return [...state.players.keys()].every((playerId) => state.readyPlayers.has(playerId));
+}
 
 function resolveVehicleCollisions(state: AuthoritativeDrivingState) {
   const players = [...state.players.entries()];

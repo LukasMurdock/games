@@ -106,6 +106,9 @@ export const productionDrivingPayloadCodec: GamePayloadCodec<
   },
 
   encodeEvent(event) {
+    if (event.type === "configuration") {
+      throw new Error("Configuration events require the configurable driving ruleset.");
+    }
     if (event.type !== "collision") {
       return new Map<number, unknown>([
         [0, event.type === "joined" ? 0 : 1],

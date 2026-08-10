@@ -122,6 +122,9 @@ try {
 async function testPublicDrivingMultiplayer(browserInstance) {
   const hostContext = await browserInstance.newContext();
   const clientContext = await browserInstance.newContext();
+  await hostContext.grantPermissions(["clipboard-read", "clipboard-write"], {
+    origin: `http://127.0.0.1:${port}`,
+  });
   const host = await hostContext.newPage();
   const client = await clientContext.newPage();
   await host.goto(`http://127.0.0.1:${port}/?multiplayer=host`);
@@ -132,6 +135,12 @@ async function testPublicDrivingMultiplayer(browserInstance) {
   await inviteButton.waitFor({ state: "visible", timeout: 20_000 });
   const inviteUrl = await inviteButton.getAttribute("data-url");
   if (!inviteUrl) throw new Error("Public driving host did not create an invite.");
+  await inviteButton.click();
+  await host.waitForFunction(
+    () => document.querySelector(".multiplayer-slot button[data-url]")?.textContent === "Copied!",
+    undefined,
+    { timeout: 5_000 },
+  );
   await client.goto(inviteUrl);
   const responseOutput = client.locator("#multiplayer-overlay output");
   await responseOutput.waitFor({ state: "visible", timeout: 20_000 });
@@ -145,15 +154,47 @@ async function testPublicDrivingMultiplayer(browserInstance) {
     { timeout: 20_000 },
   )));
   if (!landing.isClosed()) await landing.close();
+  await host.keyboard.press("KeyC");
+  await host.waitForFunction(
+    () => document.querySelector("#camera-button")?.title.includes("Isometric"),
+  );
+  await host.keyboard.press("KeyC");
+  await host.keyboard.press("KeyC");
+  await host.waitForFunction(
+    () => document.querySelector("#camera-button")?.title.includes("Chase"),
+  );
   await host.click("#pause-button");
   await host.waitForFunction(
     () => document.querySelector(".multiplayer-status")?.textContent?.includes("paused by host"),
   );
   if (await host.isHidden("#pause-button")) throw new Error("Multiplayer host pause control is hidden.");
+  const pausedBefore = await host.locator("#game-canvas").screenshot();
   await new Promise((resolve) => setTimeout(resolve, 250));
+  const pausedAfter = await host.locator("#game-canvas").screenshot();
+  if (!pausedBefore.equals(pausedAfter)) throw new Error("Paused multiplayer presentation continued moving.");
   await host.click("#pause-button");
   await host.waitForFunction(
     () => document.querySelector(".multiplayer-status")?.textContent?.includes("resumed"),
+  );
+  await host.selectOption(".multiplayer-map", "crosswind");
+  await client.waitForFunction(
+    () => document.querySelector("#driving-game")?.getAttribute("data-game-map") === "crosswind",
+    undefined,
+    { timeout: 20_000 },
+  );
+  await host.waitForFunction(
+    () => {
+      const button = document.querySelector("#pause-button");
+      return button instanceof HTMLButtonElement && !button.disabled;
+    },
+    undefined,
+    { timeout: 20_000 },
+  );
+  await host.click("#pause-button");
+  await client.waitForFunction(
+    () => document.querySelector(".multiplayer-status")?.textContent === "Connected to host.",
+    undefined,
+    { timeout: 10_000 },
   );
   const before = await host.locator("#game-canvas").screenshot();
   await client.keyboard.down("ArrowRight");

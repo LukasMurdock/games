@@ -3,13 +3,22 @@ import { decodeDirectFragment } from "../../../net/invite/fragment";
 import { DirectInviteCodec } from "../../../net/invite/codec";
 import { handoffDirectResponse } from "../../../net/invite/handoff";
 import type { DirectInvite, DirectResponse } from "../../../net/invite/types";
+import { createCarAudio, type CarAudio } from "../audio/car-audio";
+import { DRIVING_PROFILES } from "../driving-profiles";
 import { GAME_MAPS } from "../maps";
 import { buildWorld } from "../world/build-world";
 import { createDrivingWorldQuery } from "../world/driving-world-query";
 import { HostedDrivingSession, type HostedDrivingSlot } from "./hosted-session";
 import { JoinedDrivingSession } from "./joined-session";
-import { PRODUCTION_DRIVING_COMPOSITION } from "./ruleset";
-import type { AuthoritativeDrivingInput, AuthoritativeDrivingSnapshot } from "./simulation";
+import {
+  PRODUCTION_DRIVING_COMPOSITION,
+  createMultiplayerDrivingConfig,
+} from "./ruleset";
+import type {
+  AuthoritativeDrivingEvent,
+  AuthoritativeDrivingInput,
+  AuthoritativeDrivingSnapshot,
+} from "./simulation";
 import { createAuthoritativeVehicleFleet } from "./vehicle-fleet";
 
 const directCodec = new DirectInviteCodec();
@@ -21,6 +30,8 @@ type PlaySession = {
   close(): void;
   paused?: boolean;
   setPaused?(paused: boolean): void;
+  canResume?: boolean;
+  onEvent?(handler: (event: AuthoritativeDrivingEvent) => void): void;
 };
 
 export function decodeDrivingDirectFragment(fragment: string) {
@@ -29,17 +40,52 @@ export function decodeDrivingDirectFragment(fragment: string) {
 
 export async function startHostedDrivingGame(root: HTMLElement) {
   const worldHolder = createWorld(root);
+  const simulationWorld = createSimulationWorld(PRODUCTION_DRIVING_COMPOSITION.mapId);
   const inviteBase = new URL("/?multiplayer=join", window.location.origin).toString();
-  const session = new HostedDrivingSession(createDrivingWorldQuery(worldHolder.world), inviteBase);
+  const session = new HostedDrivingSession(
+    createDrivingWorldQuery(simulationWorld.world),
+    inviteBase,
+    simulationWorld.destroy,
+  );
   const overlay = setupOverlay(root, "Host multiplayer");
   const controls = document.createElement("div");
   controls.className = "multiplayer-host-controls";
   controls.innerHTML = `
+    <label>Mode <select disabled><option>Cruise</option></select></label>
+    <label>Map <select class="multiplayer-map"></select></label>
     <label>Friend name <span>optional, local only</span><input maxlength="40" autocomplete="off"></label>
     <button type="button">Create invite</button>
     <div class="multiplayer-slots"></div>
   `;
   overlay.body.append(controls);
+  const mapSelect = controls.querySelector(".multiplayer-map") as HTMLSelectElement;
+  for (const map of Object.values(GAME_MAPS)) {
+    const option = document.createElement("option");
+    option.value = map.id;
+    option.textContent = map.title;
+    mapSelect.append(option);
+  }
+  mapSelect.value = PRODUCTION_DRIVING_COMPOSITION.mapId;
+  mapSelect.addEventListener("change", () => {
+    const mapId = mapSelect.value as keyof typeof GAME_MAPS;
+    let nextSimulationWorld: ReturnType<typeof createSimulationWorld> | null = null;
+    try {
+      session.setPaused(true);
+      nextSimulationWorld = createSimulationWorld(mapId);
+      session.reconfigure(
+        createMultiplayerDrivingConfig(
+          createDrivingWorldQuery(nextSimulationWorld.world),
+          mapId,
+        ),
+        nextSimulationWorld.destroy,
+      );
+      nextSimulationWorld = null;
+      overlay.status.textContent = `Loading ${GAME_MAPS[mapId].title}. Waiting for players…`;
+    } catch (error) {
+      nextSimulationWorld?.destroy();
+      overlay.status.textContent = error instanceof Error ? error.message : String(error);
+    }
+  });
   const input = controls.querySelector("input") as HTMLInputElement;
   const createButton = controls.querySelector("button") as HTMLButtonElement;
   const slotsRoot = controls.querySelector(".multiplayer-slots") as HTMLElement;
@@ -68,7 +114,7 @@ export async function startJoinedDrivingGame(root: HTMLElement, invite: DirectIn
     const copy = document.createElement("button");
     copy.type = "button";
     copy.textContent = "Copy response";
-    copy.addEventListener("click", () => void navigator.clipboard.writeText(session.responseUrl));
+    bindCopyFeedback(copy, session.responseUrl, "response");
     overlay.body.append(output, copy);
     overlay.status.textContent = "Send this response link to the host. This game will connect when they open it.";
     startPlayLoop(root, worldHolder, session, overlay);
@@ -98,7 +144,7 @@ export async function handleDrivingResponseLanding(
     const copy = document.createElement("button");
     copy.type = "button";
     copy.textContent = "Copy response";
-    copy.addEventListener("click", () => void navigator.clipboard.writeText(fallbackUrl));
+    bindCopyFeedback(copy, fallbackUrl, "response");
     overlay.body.append(output, copy);
   }
 }
@@ -107,6 +153,15 @@ function createResponseFallbackUrl(fragment: string) {
   const url = new URL("/?multiplayer=response", window.location.origin);
   url.hash = fragment.startsWith("#") ? fragment.slice(1) : fragment;
   return url.toString();
+}
+
+function createSimulationWorld(mapId: keyof typeof GAME_MAPS) {
+  const scene = new THREE.Scene();
+  const world = buildWorld(scene, GAME_MAPS[mapId]);
+  return {
+    world,
+    destroy: () => world.destroy(),
+  };
 }
 
 function createWorld(root: HTMLElement) {
@@ -119,19 +174,34 @@ function createWorld(root: HTMLElement) {
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.12;
   const scene = new THREE.Scene();
-  const map = GAME_MAPS[PRODUCTION_DRIVING_COMPOSITION.mapId];
-  scene.background = new THREE.Color(map.environment.background);
-  scene.fog = new THREE.Fog(map.environment.background, map.environment.fogNear, map.environment.fogFar);
   scene.add(new THREE.HemisphereLight(0xeaf6ef, 0x5d632a, 1.65));
   const sun = new THREE.DirectionalLight(0xffe6ad, 3.35);
   sun.position.set(-52, 64, -38);
   scene.add(sun);
-  const world = buildWorld(scene, map);
+  let mapId: keyof typeof GAME_MAPS = PRODUCTION_DRIVING_COMPOSITION.mapId;
+  let world = buildMapWorld(mapId);
+
+  function buildMapWorld(nextMapId: keyof typeof GAME_MAPS) {
+    const map = GAME_MAPS[nextMapId];
+    scene.background = new THREE.Color(map.environment.background);
+    scene.fog = new THREE.Fog(map.environment.background, map.environment.fogNear, map.environment.fogFar);
+    return buildWorld(scene, map);
+  }
+
   return {
     canvas,
     renderer,
     scene,
-    world,
+    get world() { return world; },
+    get mapId() { return mapId; },
+    setMap(nextMapId: keyof typeof GAME_MAPS) {
+      if (nextMapId === mapId) return;
+      const nextWorld = buildMapWorld(nextMapId);
+      const previous = world;
+      world = nextWorld;
+      mapId = nextMapId;
+      previous.destroy();
+    },
     destroy() {
       world.destroy();
       renderer.dispose();
@@ -151,15 +221,48 @@ function startPlayLoop(
   root.querySelectorAll<HTMLElement>("#leaderboard-button, #reset-button")
     .forEach((element) => { element.hidden = true; });
   const pauseButton = root.querySelector<HTMLButtonElement>("#pause-button");
+  const cameraButton = root.querySelector<HTMLButtonElement>("#camera-button");
   const canPause = typeof session.setPaused === "function";
   if (pauseButton) pauseButton.hidden = !canPause;
   const fleet = createAuthoritativeVehicleFleet(holder.scene);
-  const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 350);
+  const chaseCamera = new THREE.PerspectiveCamera(60, 1, 0.1, 2_000);
+  const isometricCamera = new THREE.OrthographicCamera(-20, 20, 20, -20, 0.1, 2_000);
+  const sideCamera = new THREE.OrthographicCamera(-17, 17, 12, -12, 0.1, 2_000);
+  const cameraModes = ["Chase", "Isometric", "Side"] as const;
+  let cameraMode: typeof cameraModes[number] = "Chase";
+  const waitingPosition = holder.world.spawnPosition.clone();
+  const waitingForward = new THREE.Vector3(
+    Math.sin(holder.world.spawnHeading),
+    0,
+    Math.cos(holder.world.spawnHeading),
+  );
+  const waitingTarget = waitingPosition.clone().add(new THREE.Vector3(0, 1, 0));
+  chaseCamera.position
+    .copy(waitingPosition)
+    .addScaledVector(waitingForward, -7)
+    .add(new THREE.Vector3(0, 4, 0));
+  chaseCamera.lookAt(waitingTarget);
+  isometricCamera.position.copy(waitingPosition).add(new THREE.Vector3(26, 48, 26));
+  isometricCamera.lookAt(waitingPosition);
+  sideCamera.position.copy(waitingPosition).add(new THREE.Vector3(30, 15, 0));
+  sideCamera.lookAt(waitingTarget);
   const controls = { left: false, right: false, handbrake: false };
   let destroyed = false;
   let frameId = 0;
   let lastTime = performance.now();
   let lastInput = "";
+  let loadedEpoch: number | undefined;
+  let trackedEpoch: number | undefined;
+  let cameraInitialized = false;
+  let audio: CarAudio | null = null;
+  let audioPaused: boolean | undefined;
+  let lastRenderedSnapshot: AuthoritativeDrivingSnapshot | null = null;
+  let hostPauseSnapshot: AuthoritativeDrivingSnapshot | null = null;
+  const ensureAudio = () => {
+    audio ??= createCarAudio(DRIVING_PROFILES.loose);
+    if (audio) overlay.audio.hidden = true;
+  };
+  root.addEventListener("pointerdown", ensureAudio);
 
   const sendControls = (force = false) => {
     const input: AuthoritativeDrivingInput = {
@@ -167,12 +270,30 @@ function startPlayLoop(
       throttle: 0,
       brake: false,
       handbrake: controls.handbrake,
+      ...(loadedEpoch === undefined ? {} : { readyEpoch: loadedEpoch }),
     };
     const signature = JSON.stringify(input);
     if (!force && signature === lastInput) return;
     lastInput = signature;
     session.sendInput(input);
   };
+  session.onEvent?.((event) => {
+    if (event.type === "collision" && event.playerId === session.playerId) {
+      audio?.impact(event.terminal ? 1 : 0.55);
+      return;
+    }
+    if (event.type !== "configuration" || !(event.mapId in GAME_MAPS)) return;
+    holder.setMap(event.mapId as keyof typeof GAME_MAPS);
+    fleet.update({ players: [] }, 0);
+    lastRenderedSnapshot = null;
+    hostPauseSnapshot = null;
+    loadedEpoch = event.configurationEpoch;
+    trackedEpoch = event.configurationEpoch;
+    cameraInitialized = false;
+    root.dataset.gameMap = event.mapId;
+    root.dataset.gameMode = event.modeId;
+    sendControls(true);
+  });
   const setControl = (name: keyof typeof controls, pressed: boolean) => {
     controls[name] = pressed;
     sendControls();
@@ -183,10 +304,21 @@ function startPlayLoop(
     if (code === "Space") return "handbrake";
     return null;
   };
+  const switchCamera = () => {
+    cameraMode = cameraModes[(cameraModes.indexOf(cameraMode) + 1) % cameraModes.length];
+    cameraInitialized = false;
+    if (cameraButton) cameraButton.title = `Camera: ${cameraMode} (C)`;
+  };
+  cameraButton?.addEventListener("click", switchCamera);
   const togglePause = () => {
     if (!session.setPaused) return;
     const paused = !session.paused;
-    session.setPaused(paused);
+    try {
+      session.setPaused(paused);
+    } catch (error) {
+      overlay.status.textContent = error instanceof Error ? error.message : String(error);
+      return;
+    }
     if (pauseButton) {
       pauseButton.setAttribute("aria-pressed", String(paused));
       const label = pauseButton.querySelector(".action-label");
@@ -201,6 +333,12 @@ function startPlayLoop(
   };
   pauseButton?.addEventListener("click", togglePause);
   const onKeyDown = (event: KeyboardEvent) => {
+    ensureAudio();
+    if (!event.repeat && event.code === "KeyC") {
+      event.preventDefault();
+      switchCamera();
+      return;
+    }
     if (!event.repeat && (event.code === "KeyP" || event.code === "Escape") && canPause) {
       event.preventDefault();
       togglePause();
@@ -241,27 +379,111 @@ function startPlayLoop(
     const width = Math.max(root.clientWidth, 1);
     const height = Math.max(root.clientHeight, 1);
     holder.renderer.setSize(width, height, false);
-    camera.aspect = width / height;
-    camera.updateProjectionMatrix();
-    const snapshot = session.update(now);
+    const aspect = width / height;
+    chaseCamera.aspect = aspect;
+    chaseCamera.updateProjectionMatrix();
+    isometricCamera.left = -20 * aspect;
+    isometricCamera.right = 20 * aspect;
+    isometricCamera.updateProjectionMatrix();
+    sideCamera.left = -12 * aspect;
+    sideCamera.right = 12 * aspect;
+    sideCamera.updateProjectionMatrix();
+    const sampledSnapshot = session.update(now);
+    if (session.paused === true && hostPauseSnapshot === null && lastRenderedSnapshot) {
+      hostPauseSnapshot = lastRenderedSnapshot;
+    }
+    if (session.paused !== true && sampledSnapshot?.paused !== true) hostPauseSnapshot = null;
+    const holdHostPresentation = hostPauseSnapshot !== null
+      && (session.paused === true || sampledSnapshot?.paused === true);
+    let snapshot = sampledSnapshot;
+    if (hostPauseSnapshot && holdHostPresentation) {
+      snapshot = { ...hostPauseSnapshot, paused: true };
+    }
     if (session.state === "closed") {
       fleet.update({ players: [] }, dt);
       overlay.status.textContent = "The host ended this multiplayer session.";
       overlay.playerCount.textContent = "Session closed";
       overlay.playerList.textContent = "";
     } else if (snapshot) {
+      if (snapshot.configurationEpoch !== undefined && snapshot.configurationEpoch !== trackedEpoch) {
+        if (snapshot.mapId && snapshot.mapId in GAME_MAPS) {
+          holder.setMap(snapshot.mapId as keyof typeof GAME_MAPS);
+          root.dataset.gameMap = snapshot.mapId;
+        }
+        if (snapshot.modeId) root.dataset.gameMode = snapshot.modeId;
+        fleet.update({ players: [] }, 0);
+        trackedEpoch = snapshot.configurationEpoch;
+        cameraInitialized = false;
+      }
+      if (snapshot.configurationEpoch !== undefined) loadedEpoch = snapshot.configurationEpoch;
       fleet.update(snapshot, dt);
       const local = snapshot.players.find((player) => player.playerId === session.playerId);
       if (local) {
+        if (audioPaused !== snapshot.paused) {
+          audioPaused = snapshot.paused === true;
+          audio?.setPaused(audioPaused);
+        }
+        if (audio && !snapshot.paused) {
+          const forwardX = Math.sin(local.heading);
+          const forwardZ = Math.cos(local.heading);
+          const forwardSpeed = local.velocity[0] * forwardX + local.velocity[1] * forwardZ;
+          audio.update({
+            dt,
+            speed: local.speed,
+            forwardSpeed,
+            signedSlipDegrees: THREE.MathUtils.radToDeg(local.visualSlip),
+            steeringLoad: Math.abs(local.steering ?? 0) * THREE.MathUtils.clamp(local.speed / 14, 0, 1),
+            steerDirection: local.steering ?? 0,
+            phase: local.driftPhase,
+            onPavement: true,
+            boosting: local.boosting,
+            throttle: 1,
+            braking: controls.handbrake,
+            reversing: forwardSpeed < -0.35,
+          });
+        }
         const position = new THREE.Vector3(local.position[0], 0, local.position[1]);
         const forward = new THREE.Vector3(Math.sin(local.heading), 0, Math.cos(local.heading));
-        camera.position.lerp(position.clone().addScaledVector(forward, -7).add(new THREE.Vector3(0, 4, 0)), 1 - Math.exp(-5 * dt));
-        camera.lookAt(position.clone().add(new THREE.Vector3(0, 1, 0)));
+        if (!snapshot.paused || !cameraInitialized) {
+          const follow = cameraInitialized ? 1 - Math.exp(-5 * dt) : 1;
+          const lookTarget = position.clone().add(new THREE.Vector3(0, 1, 0));
+          if (cameraMode === "Chase") {
+            const target = position.clone().addScaledVector(forward, -7).add(new THREE.Vector3(0, 4, 0));
+            chaseCamera.position.lerp(target, follow);
+            chaseCamera.lookAt(lookTarget);
+          } else if (cameraMode === "Isometric") {
+            const target = position.clone().add(new THREE.Vector3(26, 48, 26));
+            isometricCamera.position.lerp(target, follow);
+            isometricCamera.up.set(0, 1, 0);
+            isometricCamera.lookAt(position);
+          } else {
+            const target = position.clone().add(new THREE.Vector3(30, 15, 0));
+            sideCamera.position.lerp(target, follow);
+            sideCamera.up.set(0, 1, 0);
+            sideCamera.lookAt(lookTarget);
+          }
+          cameraInitialized = true;
+        }
       }
       overlay.playerCount.textContent = `${snapshot.players.length} player${snapshot.players.length === 1 ? "" : "s"} connected`;
       overlay.playerList.textContent = snapshot.players.map((player) => player.playerId).join(" · ");
+      if (!canPause && snapshot.paused) {
+        const mapTitle = snapshot.mapId && snapshot.mapId in GAME_MAPS
+          ? GAME_MAPS[snapshot.mapId as keyof typeof GAME_MAPS].title
+          : snapshot.mapId ?? "selected map";
+        overlay.status.textContent = `Paused by host while loading ${mapTitle}.`;
+      }
+      else if (!canPause && !snapshot.paused) overlay.status.textContent = "Connected to host.";
+      if (!holdHostPresentation) lastRenderedSnapshot = snapshot;
+      if (pauseButton && session.paused) {
+        pauseButton.disabled = session.canResume === false;
+        if (session.canResume === false) overlay.status.textContent = "Waiting for every player to load the selected map…";
+      } else if (pauseButton) pauseButton.disabled = false;
     }
-    holder.renderer.render(holder.scene, camera);
+    const activeCamera = cameraMode === "Chase"
+      ? chaseCamera
+      : cameraMode === "Isometric" ? isometricCamera : sideCamera;
+    holder.renderer.render(holder.scene, activeCamera);
     frameId = requestAnimationFrame(frame);
   }
   frameId = requestAnimationFrame(frame);
@@ -272,9 +494,12 @@ function startPlayLoop(
     cancelAnimationFrame(frameId);
     clearInterval(inputHeartbeat);
     pauseButton?.removeEventListener("click", togglePause);
+    cameraButton?.removeEventListener("click", switchCamera);
     window.removeEventListener("keydown", onKeyDown);
     window.removeEventListener("keyup", onKeyUp);
     touchCleanups.forEach((cleanup) => cleanup());
+    root.removeEventListener("pointerdown", ensureAudio);
+    audio?.destroy();
     fleet.destroy();
     session.close();
     holder.destroy();
@@ -292,15 +517,40 @@ function setupOverlay(root: HTMLElement, title: string) {
   const overlay = root.querySelector<HTMLElement>("#multiplayer-overlay");
   if (!overlay) throw new Error("Multiplayer overlay is unavailable.");
   overlay.hidden = false;
-  overlay.innerHTML = `<div class="multiplayer-card"><p class="eyebrow">Drive together</p><h1></h1><p class="multiplayer-status"></p><p class="multiplayer-player-count"></p><p class="multiplayer-player-list"></p><div class="multiplayer-body"></div><button class="multiplayer-leave" type="button" hidden>Leave session</button></div>`;
+  overlay.innerHTML = `<div class="multiplayer-card"><p class="eyebrow">Drive together</p><h1></h1><p class="multiplayer-status"></p><p class="multiplayer-player-count"></p><p class="multiplayer-player-list"></p><div class="multiplayer-body"></div><button class="multiplayer-audio" type="button">Enable audio</button><button class="multiplayer-leave" type="button" hidden>Leave session</button></div>`;
   const heading = overlay.querySelector("h1") as HTMLElement;
   const status = overlay.querySelector(".multiplayer-status") as HTMLElement;
   const playerCount = overlay.querySelector(".multiplayer-player-count") as HTMLElement;
   const playerList = overlay.querySelector(".multiplayer-player-list") as HTMLElement;
   const body = overlay.querySelector(".multiplayer-body") as HTMLElement;
+  const audio = overlay.querySelector(".multiplayer-audio") as HTMLButtonElement;
   const leave = overlay.querySelector(".multiplayer-leave") as HTMLButtonElement;
   heading.textContent = title;
-  return { overlay, status, playerCount, playerList, body, leave };
+  return { overlay, status, playerCount, playerList, body, audio, leave };
+}
+
+function bindCopyFeedback(button: HTMLButtonElement, value: string, label: string) {
+  const originalText = button.textContent ?? "Copy";
+  let resetTimer = 0;
+  button.setAttribute("aria-live", "polite");
+  button.addEventListener("click", () => {
+    clearTimeout(resetTimer);
+    void Promise.resolve().then(() => navigator.clipboard.writeText(value)).then(() => {
+      button.textContent = "Copied!";
+      button.setAttribute("aria-label", `${label} copied to clipboard`);
+      button.classList.add("is-copied");
+    }).catch(() => {
+      button.textContent = "Copy failed";
+      button.setAttribute("aria-label", `Could not copy ${label}`);
+      button.classList.remove("is-copied");
+    }).finally(() => {
+      resetTimer = window.setTimeout(() => {
+        button.textContent = originalText;
+        button.removeAttribute("aria-label");
+        button.classList.remove("is-copied");
+      }, 1_800);
+    });
+  });
 }
 
 function renderSlots(root: HTMLElement, slots: readonly HostedDrivingSlot[]) {
@@ -316,7 +566,7 @@ function renderSlots(root: HTMLElement, slots: readonly HostedDrivingSlot[]) {
     copy.textContent = "Copy invite";
     copy.dataset.url = slot.inviteUrl;
     copy.disabled = slot.status !== "waiting";
-    copy.addEventListener("click", () => void navigator.clipboard.writeText(slot.inviteUrl));
+    bindCopyFeedback(copy, slot.inviteUrl, "invite");
     const close = document.createElement("button");
     close.type = "button";
     close.textContent = "Close";

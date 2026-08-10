@@ -5,10 +5,10 @@ import { createMemoryPeerPair } from "../../../net/transport/memory";
 import { DRIVING_PROFILES } from "../driving-profiles";
 import { NetworkDrivingSession } from "./network-session";
 import {
-  PRODUCTION_DRIVING_GAME_ID,
-  PRODUCTION_DRIVING_RULESET_ID,
-  productionDrivingPayloadCodec,
-} from "./protocol";
+  CONFIGURABLE_DRIVING_RULESET_ID,
+  configurableDrivingPayloadCodec,
+} from "./configurable-protocol";
+import { PRODUCTION_DRIVING_GAME_ID } from "./protocol";
 import { authoritativeDrivingSimulation } from "./simulation";
 
 function createHost() {
@@ -24,10 +24,13 @@ function createHost() {
       profile: DRIVING_PROFILES.loose,
       controlMode: "manual" as const,
       spawns: [{ x: 0, z: 0, heading: 0 }],
+      mapId: "city-circuit",
+      modeId: "cruise",
+      profileId: "loose",
     },
-    codec: new GameNetCodec(productionDrivingPayloadCodec),
+    codec: new GameNetCodec(configurableDrivingPayloadCodec),
     gameId: PRODUCTION_DRIVING_GAME_ID,
-    rulesetId: PRODUCTION_DRIVING_RULESET_ID,
+    rulesetId: CONFIGURABLE_DRIVING_RULESET_ID,
     createPlayerId: () => "driver",
   });
 }

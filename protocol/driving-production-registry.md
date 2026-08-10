@@ -1,6 +1,6 @@
 # Production Driving v1 GameNet registry
 
-Status: implementation draft; integrated into the public Direct Invite driving mode.
+Status: implementation draft; fixed-composition compatibility fixture.
 
 - Game ID: `driving`
 - Ruleset ID: `422c7a11965d4e38b1d073f529a46c02`
@@ -47,4 +47,4 @@ Clients never send trusted position, velocity, heading, drift phase, boost, coll
 | 1 | `LEFT` | Player ID |
 | 2 | `COLLISION` | Player ID, optional other player ID, terminal flag |
 
-The ruleset allocates no game-specific GameNet message types or feature IDs. The initial composition is bound to Cruise, City Circuit, the `loose` profile, automatic controls, 60 Hz host ticks, 20 Hz snapshots, and an eight-position deterministic starting grid. The public driving page exposes this composition only through its separate “Drive with friends” path; existing local modes remain independent.
+The ruleset allocates no game-specific GameNet message types or feature IDs. The initial composition is bound to Cruise, City Circuit, the `loose` profile, automatic controls, 60 Hz host ticks, 20 Hz snapshots, and an eight-position deterministic starting grid. The public driving page now negotiates the separate configurable production ruleset so the host can change maps while paused. This fixed ruleset remains available as a permanent compatibility fixture; existing local modes remain independent.

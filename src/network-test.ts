@@ -569,7 +569,8 @@ function bindGameClient(client: GameClientRuntime) {
   });
   client.onEvent((message) => {
     if (localClient !== client) return;
-    log(`Game event at tick ${message.tick}: ${message.event.playerId} ${message.event.type}.`, "received");
+    const subject = "playerId" in message.event ? `${message.event.playerId} ` : "";
+    log(`Game event at tick ${message.tick}: ${subject}${message.event.type}.`, "received");
   });
   client.onError((error) => {
     if (localClient === client) log(`GameNet ${error.kind}: ${error.message}`, "error");

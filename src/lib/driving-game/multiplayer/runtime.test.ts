@@ -67,7 +67,8 @@ describe("production driving through GameNet runtimes", () => {
     const authoritative = host.getSnapshot().players[0];
     expect(authoritative.position[1]).toBeGreaterThan(10);
     expect(authoritative.speed).toBeGreaterThan(10);
-    expect(snapshots.at(-1)?.players[0]).toEqual(authoritative);
+    const { steering: _fixedRulesetOmitsSteering, ...fixedAuthoritative } = authoritative;
+    expect(snapshots.at(-1)?.players[0]).toEqual(fixedAuthoritative);
   });
 });
 

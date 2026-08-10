@@ -12,16 +12,26 @@ export const PRODUCTION_DRIVING_COMPOSITION = {
 } as const;
 
 export function createProductionDrivingConfig(world: DrivingWorldQuery): AuthoritativeDrivingConfig {
+  return createMultiplayerDrivingConfig(world, PRODUCTION_DRIVING_COMPOSITION.mapId);
+}
+
+export function createMultiplayerDrivingConfig(
+  world: DrivingWorldQuery,
+  mapId: string,
+): AuthoritativeDrivingConfig {
   const spawns = createStartingGrid(world);
   for (const spawn of spawns) {
     if (!world.isOnPavement(spawn.x, spawn.z) || world.queryCollision(spawn.x, spawn.z, 1.25)) {
-      throw new Error("City Circuit multiplayer starting grid is not clear pavement.");
+      throw new Error(`${mapId} multiplayer starting grid is not clear pavement.`);
     }
   }
   return {
     world,
     profile: DRIVING_PROFILES[PRODUCTION_DRIVING_COMPOSITION.profileId],
     controlMode: PRODUCTION_DRIVING_COMPOSITION.controlMode,
+    mapId,
+    modeId: PRODUCTION_DRIVING_COMPOSITION.modeId,
+    profileId: PRODUCTION_DRIVING_COMPOSITION.profileId,
     spawns,
   };
 }

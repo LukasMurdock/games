@@ -94,6 +94,11 @@ export function interpolateSnapshot(
   alpha: number,
 ): AuthoritativeDrivingSnapshot {
   const amount = clamp(alpha, 0, 1);
+  if (
+    left.configurationEpoch !== undefined
+    && right.configurationEpoch !== undefined
+    && left.configurationEpoch !== right.configurationEpoch
+  ) return cloneSnapshot(amount < 1 ? left : right);
   const rightPlayers = new Map(right.players.map((player) => [player.playerId, player]));
   const players: AuthoritativeDrivingPlayer[] = [];
   for (const leftPlayer of left.players) {
@@ -113,13 +118,18 @@ export function interpolateSnapshot(
       driftPhase: amount < 0.5 ? leftPlayer.driftPhase : rightPlayer.driftPhase,
       boosting: amount < 0.5 ? leftPlayer.boosting : rightPlayer.boosting,
       exitPulse: lerp(leftPlayer.exitPulse, rightPlayer.exitPulse, amount),
+      steering: lerp(leftPlayer.steering ?? 0, rightPlayer.steering ?? 0, amount),
     });
   }
   if (amount >= 1) {
     for (const player of rightPlayers.values()) players.push(clonePlayer(player));
   }
   players.sort((leftPlayer, rightPlayer) => leftPlayer.playerId.localeCompare(rightPlayer.playerId));
-  return { players };
+  const configuration = amount < 0.5 ? left : right;
+  return {
+    ...configuration,
+    players,
+  };
 }
 
 function extrapolateSnapshot(
@@ -127,6 +137,7 @@ function extrapolateSnapshot(
   seconds: number,
 ): AuthoritativeDrivingSnapshot {
   return {
+    ...snapshot,
     players: snapshot.players.map((player) => ({
       ...clonePlayer(player),
       position: [
@@ -138,7 +149,7 @@ function extrapolateSnapshot(
 }
 
 function cloneSnapshot(snapshot: AuthoritativeDrivingSnapshot): AuthoritativeDrivingSnapshot {
-  return { players: snapshot.players.map(clonePlayer) };
+  return { ...snapshot, players: snapshot.players.map(clonePlayer) };
 }
 function clonePlayer(player: AuthoritativeDrivingPlayer): AuthoritativeDrivingPlayer {
   return {

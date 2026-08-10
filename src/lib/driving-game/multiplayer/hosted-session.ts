@@ -9,13 +9,16 @@ import { createMemoryPeerPair } from "../../../net/transport/memory";
 import { WebRTCPeerConnection } from "../../../net/transport/webrtc";
 import type { DrivingWorldQuery } from "../core/world-query";
 import {
-  PRODUCTION_DRIVING_GAME_ID,
-  PRODUCTION_DRIVING_RULESET_ID,
-  productionDrivingPayloadCodec,
-} from "./protocol";
+  CONFIGURABLE_DRIVING_RULESET_ID,
+  configurableDrivingPayloadCodec,
+} from "./configurable-protocol";
+import { PRODUCTION_DRIVING_GAME_ID } from "./protocol";
 import { PRODUCTION_DRIVING_COMPOSITION, createProductionDrivingConfig } from "./ruleset";
 import {
+  areAuthoritativeDrivingPlayersReady,
   authoritativeDrivingSimulation,
+  reconfigureAuthoritativeDriving,
+  setAuthoritativeDrivingPaused,
   type AuthoritativeDrivingConfig,
   type AuthoritativeDrivingEvent,
   type AuthoritativeDrivingInput,
@@ -54,18 +57,21 @@ export class HostedDrivingSession {
   private nextSlot = 1;
   private lastClock = performance.now();
   private sessionPaused = false;
+  private disposeSimulationWorld: () => void;
 
   constructor(
     world: DrivingWorldQuery,
     private readonly inviteBaseUrl: string,
+    disposeSimulationWorld: () => void = () => undefined,
   ) {
+    this.disposeSimulationWorld = disposeSimulationWorld;
     let nextGuest = 1;
     this.host = new HostRuntime({
       simulation: authoritativeDrivingSimulation,
       simulationConfig: createProductionDrivingConfig(world),
-      codec: new GameNetCodec(productionDrivingPayloadCodec),
+      codec: new GameNetCodec(configurableDrivingPayloadCodec),
       gameId: PRODUCTION_DRIVING_GAME_ID,
-      rulesetId: PRODUCTION_DRIVING_RULESET_ID,
+      rulesetId: CONFIGURABLE_DRIVING_RULESET_ID,
       tickRate: PRODUCTION_DRIVING_COMPOSITION.tickRate,
       snapshotRate: PRODUCTION_DRIVING_COMPOSITION.snapshotRate,
       createPlayerId: (peerId) => peerId === "local-player" ? "host" : `guest-${nextGuest++}`,
@@ -102,17 +108,30 @@ export class HostedDrivingSession {
   get state() { return this.local.state; }
   get playerCount() { return this.host.playerCount; }
   get paused() { return this.sessionPaused; }
+  get canResume() {
+    return this.host.control((state) => !state.awaitingReadiness || areAuthoritativeDrivingPlayersReady(state));
+  }
 
   setPaused(paused: boolean) {
+    this.host.control((state) => setAuthoritativeDrivingPaused(state, paused));
     this.sessionPaused = paused;
     this.lastClock = performance.now();
   }
 
+  reconfigure(
+    config: AuthoritativeDrivingConfig,
+    disposeSimulationWorld: () => void = () => undefined,
+  ) {
+    const event = this.host.control((state) => reconfigureAuthoritativeDriving(state, config));
+    const disposePreviousWorld = this.disposeSimulationWorld;
+    this.disposeSimulationWorld = disposeSimulationWorld;
+    disposePreviousWorld();
+    this.host.publishHostEvent(event);
+    this.sessionPaused = true;
+    this.lastClock = performance.now();
+  }
+
   update(now: number) {
-    if (this.sessionPaused) {
-      this.lastClock = now;
-      return this.local.sample(now);
-    }
     const elapsed = Math.min(0.1, Math.max(0, (now - this.lastClock) / 1000));
     this.lastClock = now;
     this.host.advance(elapsed);
@@ -121,6 +140,10 @@ export class HostedDrivingSession {
 
   sendInput(input: AuthoritativeDrivingInput) {
     if (this.local.state === "connected") this.local.sendInput(input);
+  }
+
+  onEvent(handler: (event: AuthoritativeDrivingEvent) => void) {
+    this.local.onEvent(handler);
   }
 
   onSlots(handler: (slots: readonly HostedDrivingSlot[]) => void) {
@@ -186,6 +209,8 @@ export class HostedDrivingSession {
     this.local.close();
     this.host.close();
     for (const slot of this.slots.values()) slot.peer.close();
+    this.disposeSimulationWorld();
+    this.disposeSimulationWorld = () => undefined;
   }
 
   private pumpTrafficClock() {

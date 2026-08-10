@@ -7,7 +7,7 @@ export type VehicleView = {
   reset(position: { x: number; z: number }, heading: number): void;
   syncPosition(position: { x: number; z: number }): void;
   update(frame: DrivingVehicleFrame): void;
-  applyAuthoritativeSnapshot(snapshot: AuthoritativeDrivingPlayer, dt: number): void;
+  applyAuthoritativeSnapshot(snapshot: AuthoritativeDrivingPlayer, dt: number, paused?: boolean): void;
   destroy(): void;
 };
 
@@ -76,16 +76,16 @@ export function createVehicleView(scene: THREE.Scene): VehicleView {
         braking: frame.braking || frame.handbrake || frame.hardDriftKick > 0.05,
       });
     },
-    applyAuthoritativeSnapshot(snapshot, dt) {
+    applyAuthoritativeSnapshot(snapshot, dt, paused = false) {
       const forwardX = Math.sin(snapshot.heading);
       const forwardZ = Math.cos(snapshot.heading);
       const forwardSpeed = snapshot.velocity[0] * forwardX + snapshot.velocity[1] * forwardZ;
       animate({
-        dt,
+        dt: paused ? 0 : dt,
         position: { x: snapshot.position[0], z: snapshot.position[1] },
         heading: snapshot.heading,
-        steering: 0,
-        forwardSpeed,
+        steering: snapshot.steering ?? 0,
+        forwardSpeed: paused ? 0 : forwardSpeed,
         targetRoll: THREE.MathUtils.clamp(snapshot.visualSlip * 0.12, -0.075, 0.075),
         targetPitch: -snapshot.exitPulse * 0.025,
         braking: false,

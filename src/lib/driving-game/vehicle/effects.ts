@@ -75,6 +75,13 @@ export function createDriftSmoke(scene: THREE.Scene) {
         particle.mesh.visible = false;
       });
     },
+    destroy() {
+      for (const particle of particles) {
+        scene.remove(particle.mesh);
+        (particle.mesh.material as THREE.Material).dispose();
+      }
+      geometry.dispose();
+    },
   };
 }
 
@@ -130,6 +137,11 @@ export function createSkidMarks(scene: THREE.Scene) {
       distanceBudget = 0;
       marks.count = 0;
       marks.instanceMatrix.needsUpdate = true;
+    },
+    destroy() {
+      scene.remove(marks);
+      marks.geometry.dispose();
+      (marks.material as THREE.Material).dispose();
     },
   };
 }

@@ -69,6 +69,21 @@ describe("driving snapshot interpolation", () => {
     expect(buffer.sample()?.players[0].position[0]).toBeCloseTo(6);
   });
 
+  it("never blends vehicle state across configuration epochs", () => {
+    const before = {
+      players: [player("one", [100, 0])],
+      configurationEpoch: 1,
+      mapId: "city-circuit",
+    };
+    const after = {
+      players: [player("one", [0, 0])],
+      configurationEpoch: 2,
+      mapId: "crosswind",
+    };
+    expect(interpolateSnapshot(before, after, 0.9)).toEqual(before);
+    expect(interpolateSnapshot(before, after, 1)).toEqual(after);
+  });
+
   it("applies joins and departures at authoritative snapshot boundaries", () => {
     const before = { players: [player("one", [0, 0])] };
     const after = { players: [player("two", [2, 0])] };

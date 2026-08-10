@@ -1,6 +1,11 @@
+import * as THREE from "three";
 import { describe, expect, it } from "vitest";
+import { GAME_MAPS } from "../maps";
+import { buildWorld } from "../world/build-world";
+import { createDrivingWorldQuery } from "../world/driving-world-query";
 import {
   PRODUCTION_DRIVING_COMPOSITION,
+  createMultiplayerDrivingConfig,
   createProductionDrivingConfig,
   createStartingGrid,
 } from "./ruleset";
@@ -35,6 +40,17 @@ describe("production driving ruleset composition", () => {
       }
     }
     expect(createProductionDrivingConfig(world).spawns).toEqual(first);
+  });
+
+  it("validates a clear starting grid on every registered map", () => {
+    for (const map of Object.values(GAME_MAPS)) {
+      const worldRuntime = buildWorld(new THREE.Scene(), map);
+      expect(() => createMultiplayerDrivingConfig(
+        createDrivingWorldQuery(worldRuntime),
+        map.id,
+      )).not.toThrow();
+      worldRuntime.destroy();
+    }
   });
 
   it("fails closed when a grid position is not clear pavement", () => {

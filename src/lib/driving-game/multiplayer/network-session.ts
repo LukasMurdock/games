@@ -3,10 +3,10 @@ import { ClientRuntime, type ClientRuntimeError, type ClientRuntimeState } from 
 import type { PeerConnection } from "../../../net/transport/peer";
 import { DrivingSnapshotBuffer, type DrivingInterpolationOptions } from "./interpolation";
 import {
-  PRODUCTION_DRIVING_GAME_ID,
-  PRODUCTION_DRIVING_RULESET_ID,
-  productionDrivingPayloadCodec,
-} from "./protocol";
+  CONFIGURABLE_DRIVING_RULESET_ID,
+  configurableDrivingPayloadCodec,
+} from "./configurable-protocol";
+import { PRODUCTION_DRIVING_GAME_ID } from "./protocol";
 import type {
   AuthoritativeDrivingEvent,
   AuthoritativeDrivingInput,
@@ -28,21 +28,33 @@ export class NetworkDrivingSession {
   private readonly eventHandlers = new Set<(event: AuthoritativeDrivingEvent) => void>();
   private readonly stateHandlers = new Set<(state: ClientRuntimeState) => void>();
   private readonly errorHandlers = new Set<(error: ClientRuntimeError) => void>();
+  private lastPaused: boolean | undefined;
 
   constructor(options: NetworkDrivingSessionOptions) {
     this.snapshots = new DrivingSnapshotBuffer(options.interpolation);
     this.runtime = new ClientRuntime({
       peer: options.peer,
-      codec: new GameNetCodec(productionDrivingPayloadCodec),
+      codec: new GameNetCodec(configurableDrivingPayloadCodec),
       gameId: PRODUCTION_DRIVING_GAME_ID,
-      rulesetId: PRODUCTION_DRIVING_RULESET_ID,
+      rulesetId: CONFIGURABLE_DRIVING_RULESET_ID,
     });
-    this.runtime.onSnapshot((message) => this.snapshots.push(message.tick, message.snapshot));
+    this.runtime.onSnapshot((message) => {
+      const paused = message.snapshot.paused;
+      if (this.lastPaused !== undefined && paused !== undefined && paused !== this.lastPaused) {
+        this.snapshots.clear();
+      }
+      if (paused !== undefined) this.lastPaused = paused;
+      this.snapshots.push(message.tick, message.snapshot);
+    });
     this.runtime.onEvent((message) => {
+      if (message.event.type === "configuration") this.snapshots.clear();
       for (const handler of this.eventHandlers) handler(message.event);
     });
     this.runtime.onState((state) => {
-      if (state === "closed") this.snapshots.clear();
+      if (state === "closed") {
+        this.snapshots.clear();
+        this.lastPaused = undefined;
+      }
       for (const handler of this.stateHandlers) handler(state);
     });
     this.runtime.onError((error) => {

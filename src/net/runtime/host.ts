@@ -85,6 +85,17 @@ export class HostRuntime<Config, Input, State, Snapshot, Event> {
     return this.simulation.snapshot(this.state);
   }
 
+  /** Executes a synchronous authority-only state transition owned by the host application. */
+  control<Result>(transition: (state: State) => Result): Result {
+    if (this.closed) throw new Error("HostRuntime is closed.");
+    return transition(this.state);
+  }
+
+  publishHostEvent(event: Event): void {
+    if (this.closed) throw new Error("HostRuntime is closed.");
+    this.publishEvents([event]);
+  }
+
   attach(peer: PeerConnection): void {
     if (this.closed) {
       peer.close();

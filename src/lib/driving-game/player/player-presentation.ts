@@ -100,6 +100,8 @@ export function createPlayerPresentation(
     },
     destroy() {
       audio?.destroy();
+      driftSmoke.destroy();
+      skidMarks.destroy();
       vehicleView.destroy();
     },
   };

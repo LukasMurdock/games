@@ -3,7 +3,7 @@ import { createDirectUrl, encodeResponseFragment } from "../../../net/invite/fra
 import { createDirectResponse } from "../../../net/invite/proof";
 import type { DirectInvite } from "../../../net/invite/types";
 import { WebRTCPeerConnection } from "../../../net/transport/webrtc";
-import type { AuthoritativeDrivingInput } from "./simulation";
+import type { AuthoritativeDrivingEvent, AuthoritativeDrivingInput } from "./simulation";
 import { NetworkDrivingSession } from "./network-session";
 
 const ICE_SERVERS: RTCIceServer[] = [{ urls: "stun:stun.cloudflare.com:3478" }];
@@ -14,6 +14,7 @@ export class JoinedDrivingSession {
   readonly responseUrl: string;
   private network: NetworkDrivingSession | null = null;
   private transportClosed = false;
+  private readonly eventHandlers = new Set<(event: AuthoritativeDrivingEvent) => void>();
 
   private constructor(peer: WebRTCPeerConnection, responseUrl: string) {
     this.peer = peer;
@@ -29,6 +30,9 @@ export class JoinedDrivingSession {
         && this.network === null
       ) {
         this.network = new NetworkDrivingSession({ peer });
+        this.network.onEvent((event) => {
+          for (const handler of this.eventHandlers) handler(event);
+        });
         this.network.start();
       }
     });
@@ -62,6 +66,10 @@ export class JoinedDrivingSession {
 
   sendInput(input: AuthoritativeDrivingInput) {
     if (this.network?.state === "connected") this.network.sendInput(input);
+  }
+
+  onEvent(handler: (event: AuthoritativeDrivingEvent) => void) {
+    this.eventHandlers.add(handler);
   }
 
   close() {

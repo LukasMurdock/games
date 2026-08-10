@@ -511,9 +511,15 @@
     color: #eef8e6;
     cursor: pointer;
   }
+  .multiplayer-card button.is-copied {
+    border-color: rgba(126, 231, 160, 0.75);
+    background: rgba(65, 155, 98, 0.3);
+    color: #e7ffed;
+  }
   .multiplayer-host-controls label { display: grid; gap: 6px; color: rgba(255, 255, 255, 0.72); font-size: 12px; }
   .multiplayer-host-controls label span { opacity: 0.6; }
-  .multiplayer-host-controls input {
+  .multiplayer-host-controls input,
+  .multiplayer-host-controls select {
     min-height: 40px;
     padding: 0 12px;
     border: 1px solid rgba(255, 255, 255, 0.18);
@@ -521,6 +527,7 @@
     background: rgba(0, 0, 0, 0.22);
     color: #fff;
   }
+  .multiplayer-host-controls { display: grid; gap: 10px; }
   .multiplayer-host-controls > button { margin-top: 10px; }
   .multiplayer-slots { display: grid; gap: 8px; margin-top: 14px; }
   .multiplayer-slot {

@@ -78,6 +78,12 @@ describe("HostRuntime", () => {
     ]);
   });
 
+  it("allows synchronous authority-only application transitions", () => {
+    const { host } = createHarness();
+    const playerCount = host.control((state) => state.players.size);
+    expect(playerCount).toBe(0);
+  });
+
   it("applies client intent only through fixed host ticks and publishes snapshots", async () => {
     const { host, connect } = createHarness();
     const client = connect("browser-a");

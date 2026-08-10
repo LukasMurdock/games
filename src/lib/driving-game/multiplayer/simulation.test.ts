@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { DRIVING_PROFILES } from "../driving-profiles";
 import {
+  areAuthoritativeDrivingPlayersReady,
   authoritativeDrivingSimulation,
+  reconfigureAuthoritativeDriving,
+  setAuthoritativeDrivingPaused,
   type AuthoritativeDrivingConfig,
 } from "./simulation";
 
@@ -45,6 +48,25 @@ describe("production authoritative driving simulation", () => {
     expect(player.speed).toBeGreaterThan(10);
   });
 
+  it("converts network steering intent to the vehicle presentation convention", () => {
+    const state = authoritativeDrivingSimulation.create(config());
+    authoritativeDrivingSimulation.addPlayer(state, "driver");
+    authoritativeDrivingSimulation.input(state, "driver", {
+      steering: -1,
+      throttle: 0,
+      brake: false,
+      handbrake: false,
+    });
+    expect(authoritativeDrivingSimulation.snapshot(state).players[0].steering).toBe(1);
+    authoritativeDrivingSimulation.input(state, "driver", {
+      steering: 1,
+      throttle: 0,
+      brake: false,
+      handbrake: false,
+    });
+    expect(authoritativeDrivingSimulation.snapshot(state).players[0].steering).toBe(-1);
+  });
+
   it("assigns and reuses deterministic non-overlapping spawns", () => {
     const state = authoritativeDrivingSimulation.create(config());
     expect(authoritativeDrivingSimulation.addPlayer(state, "one")).toEqual([
@@ -65,6 +87,43 @@ describe("production authoritative driving simulation", () => {
     expect(() => authoritativeDrivingSimulation.create(config({
       spawns: [{ x: 0, z: 0, heading: 0 }, { x: 1, z: 0, heading: 0 }],
     }))).toThrow("must not overlap");
+  });
+
+  it("pauses, reconfigures, waits for every player, and resumes by epoch", () => {
+    const state = authoritativeDrivingSimulation.create(config());
+    authoritativeDrivingSimulation.addPlayer(state, "one");
+    authoritativeDrivingSimulation.addPlayer(state, "two");
+    setAuthoritativeDrivingPaused(state, true);
+    const frozen = authoritativeDrivingSimulation.snapshot(state);
+    for (let index = 0; index < 60; index++) authoritativeDrivingSimulation.tick(state, 1 / 60);
+    expect(authoritativeDrivingSimulation.snapshot(state).players).toEqual(frozen.players);
+
+    reconfigureAuthoritativeDriving(state, config({
+      mapId: "crosswind",
+      modeId: "cruise",
+      profileId: "loose",
+      spawns: [
+        { x: -8, z: 0, heading: 0 },
+        { x: 8, z: 0, heading: 0 },
+      ],
+    }));
+    const configured = authoritativeDrivingSimulation.snapshot(state);
+    expect(configured).toEqual(expect.objectContaining({
+      configurationEpoch: 1,
+      paused: true,
+      mapId: "crosswind",
+    }));
+    authoritativeDrivingSimulation.input(state, "one", {
+      steering: 0, throttle: 0, brake: false, handbrake: false, readyEpoch: 1,
+    });
+    expect(areAuthoritativeDrivingPlayersReady(state)).toBe(false);
+    expect(() => setAuthoritativeDrivingPaused(state, false)).toThrow("connected players");
+    authoritativeDrivingSimulation.input(state, "two", {
+      steering: 0, throttle: 0, brake: false, handbrake: false, readyEpoch: 1,
+    });
+    expect(areAuthoritativeDrivingPlayersReady(state)).toBe(true);
+    setAuthoritativeDrivingPaused(state, false);
+    expect(authoritativeDrivingSimulation.snapshot(state).paused).toBe(false);
   });
 
   it("resolves vehicle collisions authoritatively", () => {
