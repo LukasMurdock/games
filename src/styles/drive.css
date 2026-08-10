@@ -783,6 +783,10 @@
   }
 
   @media (max-width: 720px), (any-pointer: coarse) {
+    .pause-overlay.is-multiplayer {
+      padding-bottom: max(88px, calc(env(safe-area-inset-bottom) + 76px));
+    }
+
     .pause-overlay.is-multiplayer .pause-card,
     .pause-overlay.is-multiplayer .multiplayer-overlay { width: min(500px, 100%); }
 
@@ -912,6 +916,10 @@
         max(14px, env(safe-area-inset-right))
         max(10px, env(safe-area-inset-bottom))
         max(14px, env(safe-area-inset-left));
+    }
+
+    .pause-overlay.is-multiplayer {
+      padding-bottom: max(72px, calc(env(safe-area-inset-bottom) + 64px));
     }
 
     .intro-card {

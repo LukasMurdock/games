@@ -110,6 +110,7 @@ try {
   await hostContext.close();
   await testDrivingPilot(browser);
   await testPublicDrivingMultiplayer(browser);
+  await testMobileMultiplayerLayout(browser);
   await testSinglePlayerDriving(browser);
 } catch (error) {
   if (serverOutput) console.error(serverOutput);
@@ -275,6 +276,51 @@ async function testPublicDrivingMultiplayer(browserInstance) {
   );
   await Promise.all([hostContext.close(), clientContext.close()]);
   console.log("Public driving multiplayer passed: invites, two cars, isolated leave, replacement, and host close.");
+}
+
+async function testMobileMultiplayerLayout(browserInstance) {
+  const context = await browserInstance.newContext({
+    viewport: { width: 390, height: 844 },
+    deviceScaleFactor: 3,
+    isMobile: true,
+    hasTouch: true,
+  });
+  const page = await context.newPage();
+  await page.goto(`http://127.0.0.1:${port}/?multiplayer=host`);
+  await page.waitForSelector("#pause-overlay.is-visible .multiplayer-card", {
+    state: "visible",
+    timeout: 20_000,
+  });
+  const portrait = await page.evaluate(() => {
+    const pause = document.querySelector("#pause-overlay");
+    const config = document.querySelector(".multiplayer-configuration")?.getBoundingClientRect();
+    const invites = document.querySelector(".multiplayer-invites")?.getBoundingClientRect();
+    const hud = document.querySelector(".multiplayer-network-hud")?.getBoundingClientRect();
+    if (!(pause instanceof HTMLElement) || !config || !invites || !hud) return null;
+    pause.scrollTop = pause.scrollHeight;
+    return {
+      horizontalOverflow: document.documentElement.scrollWidth - innerWidth,
+      groupsAreSeparated: config.bottom < invites.top,
+      hudLeft: hud.left,
+      hudBottom: innerHeight - hud.bottom,
+      bottomPadding: Number.parseFloat(getComputedStyle(pause).paddingBottom),
+    };
+  });
+  if (
+    !portrait
+    || portrait.horizontalOverflow > 1
+    || !portrait.groupsAreSeparated
+    || portrait.hudLeft > 24
+    || portrait.hudBottom > 24
+    || portrait.bottomPadding < 64
+  ) throw new Error(`Mobile multiplayer pause layout is unsafe: ${JSON.stringify(portrait)}`);
+
+  await page.setViewportSize({ width: 844, height: 390 });
+  await page.waitForTimeout(100);
+  const landscapeOverflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
+  if (landscapeOverflow > 1) throw new Error("Landscape multiplayer pause layout overflows horizontally.");
+  await context.close();
+  console.log("Mobile multiplayer pause layout passed: portrait, landscape, groups, and diagnostics safe area.");
 }
 
 async function testSinglePlayerDriving(browserInstance) {
