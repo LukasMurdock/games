@@ -366,6 +366,14 @@ async function testSinglePlayerDriving(browserInstance) {
   await page.keyboard.up("ArrowLeft");
   const after = await page.locator("#game-canvas").screenshot();
   if (before.equals(after)) throw new Error("Extracted local driving simulation did not advance presentation.");
+  await page.keyboard.press("KeyP");
+  await page.waitForSelector("#pause-overlay.is-visible");
+  const pauseMaps = page.locator("#pause-overlay [data-map-option]");
+  if (await pauseMaps.count() !== 6) throw new Error("Single-player pause screen lost its map options.");
+  await page.click("#pause-overlay [data-map-option='crosswind']");
+  await page.waitForFunction(
+    () => document.querySelector("#driving-game")?.getAttribute("data-game-map") === "crosswind",
+  );
   if (pageErrors.length > 0) throw pageErrors[0];
   await context.close();
   console.log("Single-player driving smoke test passed after simulation extraction.");

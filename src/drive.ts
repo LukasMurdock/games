@@ -6,8 +6,8 @@ import {
   startDrivingGame,
 } from "./lib/driving-game";
 
-const mapSelect = document.querySelector<HTMLElement>(".map-select");
-if (mapSelect) {
+const mapSelects = document.querySelectorAll<HTMLElement>(".map-select");
+for (const mapSelect of mapSelects) {
   for (const map of Object.values(GAME_MAPS)) {
     const button = document.createElement("button");
     button.type = "button";
