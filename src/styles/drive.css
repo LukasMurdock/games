@@ -535,7 +535,12 @@
     background: rgba(65, 155, 98, 0.3);
     color: #e7ffed;
   }
-  .multiplayer-host-controls { display: grid; gap: 16px; }
+  .multiplayer-host-controls {
+    display: grid;
+    grid-template-columns: minmax(250px, 0.9fr) minmax(320px, 1.1fr);
+    align-items: start;
+    gap: 16px;
+  }
   .multiplayer-control-group {
     display: grid;
     gap: 10px;
@@ -631,8 +636,8 @@
   }
 
   .pause-overlay.is-multiplayer {
-    grid-template-columns: minmax(220px, 320px) minmax(320px, 500px);
-    gap: 18px;
+    grid-template-columns: minmax(220px, 300px) minmax(620px, 760px);
+    gap: 22px;
     align-content: center;
   }
 
@@ -641,6 +646,7 @@
     padding: 30px;
   }
 
+  .pause-overlay.is-multiplayer .eyebrow,
   .pause-overlay.is-multiplayer .pause-drive-time,
   .pause-overlay.is-multiplayer .pause-mode-select,
   .pause-overlay.is-multiplayer #fullscreen-button { display: none; }
@@ -650,7 +656,7 @@
   .pause-overlay.is-multiplayer .multiplayer-overlay {
     position: static;
     width: 100%;
-    max-height: min(76vh, 720px);
+    max-height: min(84vh, 760px);
     overflow: auto;
     pointer-events: auto;
   }
@@ -764,12 +770,19 @@
 
   #driving-game[data-touch-capable="true"] .touch-controls { display: flex; }
 
-  @media (max-width: 720px), (any-pointer: coarse) {
+  @media (max-width: 900px) {
     .pause-overlay.is-multiplayer {
       grid-template-columns: minmax(0, 1fr);
       align-content: start;
     }
 
+    .pause-overlay.is-multiplayer .pause-card,
+    .pause-overlay.is-multiplayer .multiplayer-overlay { width: min(680px, 100%); }
+
+    .multiplayer-host-controls { grid-template-columns: minmax(0, 1fr); }
+  }
+
+  @media (max-width: 720px), (any-pointer: coarse) {
     .pause-overlay.is-multiplayer .pause-card,
     .pause-overlay.is-multiplayer .multiplayer-overlay { width: min(500px, 100%); }
 
