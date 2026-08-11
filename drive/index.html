@@ -133,6 +133,13 @@
               </div>
             </div>
           </div>
+          <div class="pause-audio-controls">
+            <p class="now-playing"><span>Now playing</span><strong id="now-playing">Night Signal · Soundtrack 01</strong></p>
+            <label for="game-soundtrack"><span>Track</span><select id="game-soundtrack" aria-label="Soundtrack"><option value="night-signal">Night Signal · 01</option><option value="shadowline">Shadowline · 02</option><option value="bass-canyon">Bass Canyon · 03</option></select></label>
+            <label for="music-volume"><span>Music</span><input id="music-volume" type="range" min="0" max="100" value="58" aria-label="Music volume" /></label>
+            <button id="music-mute" type="button" aria-pressed="false">Mute music</button>
+            <label for="vehicle-volume"><span>Vehicle</span><input id="vehicle-volume" type="range" min="0" max="100" value="100" aria-label="Vehicle volume" /></label>
+          </div>
           <div class="pause-actions">
             <button id="resume-driving" type="button">Resume driving <span aria-hidden="true">→</span></button>
             <a class="pause-multiplayer-link" href="/drive/?multiplayer=host">Play with friends</a>

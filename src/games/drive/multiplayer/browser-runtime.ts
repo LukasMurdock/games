@@ -4,6 +4,8 @@ import { DirectInviteCodec } from "../../../net/invite/codec";
 import { handoffDirectResponse } from "../../../net/invite/handoff";
 import type { DirectInvite, DirectResponse } from "../../../net/invite/types";
 import { createCarAudio, type CarAudio } from "../audio/car-audio";
+import { createDrivingAudioMixer, type DrivingAudioMixer } from "../audio/driving-audio-mixer";
+import { SOUNDTRACKS, type SoundtrackId } from "../audio/soundtrack-registry";
 import { DRIVING_PROFILES } from "../driving-profiles";
 import { GAME_MAPS } from "../maps";
 import { buildWorld } from "../world/build-world";
@@ -294,6 +296,11 @@ function startPlayLoop(
   const pauseHeading = pauseOverlay?.querySelector<HTMLElement>("h2");
   const resumeButton = root.querySelector<HTMLButtonElement>("#resume-driving");
   const cameraButton = root.querySelector<HTMLButtonElement>("#camera-button");
+  const musicVolumeControl = root.querySelector<HTMLInputElement>("#music-volume");
+  const musicMuteControl = root.querySelector<HTMLButtonElement>("#music-mute");
+  const vehicleVolumeControl = root.querySelector<HTMLInputElement>("#vehicle-volume");
+  const soundtrackControl = root.querySelector<HTMLSelectElement>("#game-soundtrack");
+  const nowPlaying = root.querySelector<HTMLElement>("#now-playing");
   const canPause = typeof session.setPaused === "function";
   if (pauseButton) pauseButton.hidden = false;
   pauseOverlay?.classList.add("is-multiplayer");
@@ -343,15 +350,75 @@ function startPlayLoop(
   let trackedEpoch: number | undefined;
   let cameraInitialized = false;
   let audio: CarAudio | null = null;
+  let gameAudio: DrivingAudioMixer | null = null;
   let audioProfileId: "loose" | "aggressive" = "loose";
   let audioPaused: boolean | undefined;
   let lastRenderedSnapshot: AuthoritativeDrivingSnapshot | null = null;
   let hostPauseSnapshot: AuthoritativeDrivingSnapshot | null = null;
   let localMenuOpen = false;
+  const createVehicleAudio = () => createCarAudio(
+    DRIVING_PROFILES[audioProfileId],
+    gameAudio ? {
+      context: gameAudio.context,
+      destination: gameAudio.vehicleDestination,
+    } : undefined,
+  );
+  const musicMuted = () => musicMuteControl?.getAttribute("aria-pressed") === "true";
+  const updateSoundtrackPresentation = () => {
+    const trackId = gameAudio?.getCurrentTrack() ?? "night-signal";
+    const definition = SOUNDTRACKS[trackId];
+    if (soundtrackControl) soundtrackControl.value = trackId;
+    if (nowPlaying) nowPlaying.textContent = `${definition.title} · ${definition.subtitle}`;
+  };
   const ensureAudio = () => {
-    audio ??= createCarAudio(DRIVING_PROFILES[audioProfileId]);
+    gameAudio ??= createDrivingAudioMixer();
+    if (gameAudio) {
+      gameAudio.setMusicVolume(Number(musicVolumeControl?.value ?? 58) / 100);
+      gameAudio.setMusicMuted(musicMuted());
+      gameAudio.setVehicleVolume(Number(vehicleVolumeControl?.value ?? 100) / 100);
+      updateSoundtrackPresentation();
+      void gameAudio.start();
+    }
+    audio ??= createVehicleAudio();
     if (audio) overlay.audio.hidden = true;
   };
+  const storeAudioValue = (key: string, value: string) => {
+    try { window.localStorage.setItem(key, value); } catch { /* optional */ }
+  };
+  const updateMusicVolume = () => {
+    const volume = Math.max(0, Math.min(1, Number(musicVolumeControl?.value ?? 58) / 100));
+    gameAudio?.setMusicVolume(volume);
+    storeAudioValue("driving-game:music-volume:v1", String(volume));
+  };
+  const updateVehicleVolume = () => {
+    const volume = Math.max(0, Math.min(1, Number(vehicleVolumeControl?.value ?? 100) / 100));
+    gameAudio?.setVehicleVolume(volume);
+    storeAudioValue("driving-game:vehicle-volume:v1", String(volume));
+  };
+  const toggleMusicMute = () => {
+    if (!musicMuteControl) return;
+    const muted = !musicMuted();
+    musicMuteControl.setAttribute("aria-pressed", String(muted));
+    musicMuteControl.textContent = muted ? "Unmute music" : "Mute music";
+    gameAudio?.setMusicMuted(muted);
+    storeAudioValue("driving-game:music-muted:v1", String(muted));
+  };
+  try {
+    const storedMusic = window.localStorage.getItem("driving-game:music-volume:v1");
+    const storedVehicle = window.localStorage.getItem("driving-game:vehicle-volume:v1");
+    const storedMuted = window.localStorage.getItem("driving-game:music-muted:v1") === "true";
+    if (musicVolumeControl && storedMusic !== null) musicVolumeControl.value = String(Math.round(Number(storedMusic) * 100));
+    if (vehicleVolumeControl && storedVehicle !== null) vehicleVolumeControl.value = String(Math.round(Number(storedVehicle) * 100));
+    if (musicMuteControl) {
+      musicMuteControl.setAttribute("aria-pressed", String(storedMuted));
+      musicMuteControl.textContent = storedMuted ? "Unmute music" : "Mute music";
+    }
+  } catch { /* optional */ }
+  const selectSoundtrack = () => gameAudio?.setTrack(soundtrackControl?.value as SoundtrackId, "bar");
+  musicVolumeControl?.addEventListener("input", updateMusicVolume);
+  vehicleVolumeControl?.addEventListener("input", updateVehicleVolume);
+  musicMuteControl?.addEventListener("click", toggleMusicMute);
+  soundtrackControl?.addEventListener("change", selectSoundtrack);
   root.addEventListener("pointerdown", ensureAudio);
 
   const sendControls = (force = false) => {
@@ -381,10 +448,14 @@ function startPlayLoop(
   session.onEvent?.((event) => {
     if (event.type === "collision" && event.playerId === session.playerId) {
       audio?.impact(event.terminal ? 1 : 0.55);
+      gameAudio?.collision();
       return;
     }
     if (event.type === "chase-captured") {
-      if (event.playerId === session.playerId) audio?.impact(1);
+      if (event.playerId === session.playerId) {
+        audio?.impact(1);
+        gameAudio?.cue("capture");
+      }
       overlay.status.textContent = `${session.getPlayerName?.(event.playerId) ?? event.playerId} was caught after ${formatChaseTime(event.survivalTime)}.`;
       return;
     }
@@ -394,7 +465,7 @@ function startPlayLoop(
       audioProfileId = nextAudioProfileId;
       if (audio) {
         audio.destroy();
-        audio = createCarAudio(DRIVING_PROFILES[audioProfileId]);
+        audio = createVehicleAudio();
         audio?.setPaused(true);
       }
     }
@@ -611,6 +682,15 @@ function startPlayLoop(
             reversing: forwardSpeed < -0.35,
           });
         }
+        const chaseTime = snapshot.chase?.survivalTime ?? 0;
+        gameAudio?.updateMusic({
+          running: session.state === "connected",
+          paused: snapshot.paused === true || localMenuOpen,
+          speed: THREE.MathUtils.clamp(local.speed / DRIVING_PROFILES[audioProfileId].maximumSpeed, 0, 1),
+          drift: THREE.MathUtils.clamp(Math.abs(local.visualSlip) / THREE.MathUtils.degToRad(35), 0, 1),
+          chaseTier: snapshot.modeId === "chase" ? chaseTime >= 45 ? 3 : chaseTime >= 20 ? 2 : 1 : 0,
+        });
+        updateSoundtrackPresentation();
         root.dataset.localVehiclePosition = `${local.position[0]},${local.position[1]}`;
         const position = new THREE.Vector3(local.position[0], 0, local.position[1]);
         const forward = new THREE.Vector3(Math.sin(local.heading), 0, Math.cos(local.heading));
@@ -697,9 +777,14 @@ function startPlayLoop(
     window.removeEventListener("keyup", onKeyUp);
     touchCleanups.forEach((cleanup) => cleanup());
     root.removeEventListener("pointerdown", ensureAudio);
+    musicVolumeControl?.removeEventListener("input", updateMusicVolume);
+    vehicleVolumeControl?.removeEventListener("input", updateVehicleVolume);
+    musicMuteControl?.removeEventListener("click", toggleMusicMute);
+    soundtrackControl?.removeEventListener("change", selectSoundtrack);
     coarsePointerQuery.removeEventListener("change", updateInputCapabilities);
     desktopPointerQuery.removeEventListener("change", updateInputCapabilities);
     audio?.destroy();
+    gameAudio?.destroy();
     diagnosticsHud.remove();
     chaseHud.remove();
     pauseOverlay?.classList.remove("is-visible", "is-multiplayer");

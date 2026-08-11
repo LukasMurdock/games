@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import type { CarAudioOptions } from "../audio/car-audio";
 import type { DrivingWorldQuery } from "../core/world-query";
 import type { DrivingProfile } from "../driving-profiles";
 import { createDrivingVehicleSimulation } from "../simulation/vehicle-simulation";
@@ -19,6 +20,7 @@ import type {
 
 export function createPlayerController({
   scene,
+  audioOptions,
   presentation: suppliedPresentation,
   world: initialWorld,
   worldQuery: suppliedWorldQuery,
@@ -28,6 +30,7 @@ export function createPlayerController({
   onResetRequested,
 }: {
   scene?: THREE.Scene;
+  audioOptions?: CarAudioOptions;
   presentation?: PlayerPresentation;
   world?: WorldRuntime;
   worldQuery?: DrivingWorldQuery;
@@ -40,7 +43,7 @@ export function createPlayerController({
     throw new Error("PlayerController requires a world or DrivingWorldQuery.");
   }
   const presentation = suppliedPresentation
-    ?? (scene ? createPlayerPresentation(scene, profile) : createNullPlayerPresentation());
+    ?? (scene ? createPlayerPresentation(scene, profile, audioOptions) : createNullPlayerPresentation());
   const worldQuery = suppliedWorldQuery ?? createDrivingWorldQuery(initialWorld as WorldRuntime);
   const presentationPosition = new THREE.Vector3();
   const snapshot: PlayerSnapshot = {

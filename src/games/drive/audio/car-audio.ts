@@ -39,6 +39,10 @@ export type CarAudioTelemetry = {
 export type CarAudioOptions = {
   engine?: EngineDefinition;
   transmission?: TransmissionTuning;
+  /** Reuse a site-owned context when vehicle audio is part of a larger mix. */
+  context?: AudioContext;
+  /** Destination for the compressed vehicle mix. Defaults to the context destination. */
+  destination?: AudioNode;
 };
 
 export type CarAudioIsolation = "mix" | "engine" | "tires";
@@ -66,9 +70,10 @@ export function createCarAudio(
   );
   const AudioContextClass = window.AudioContext
     ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-  if (!AudioContextClass) return null;
+  if (!options.context && !AudioContextClass) return null;
 
-  const context = new AudioContextClass();
+  const ownsContext = options.context === undefined;
+  const context = options.context ?? new (AudioContextClass as typeof AudioContext)();
   const master = context.createGain();
   master.gain.value = 0.48;
   const compressor = context.createDynamicsCompressor();
@@ -80,7 +85,7 @@ export function createCarAudio(
   const analyser = context.createAnalyser();
   analyser.fftSize = 2048;
   analyser.smoothingTimeConstant = 0.72;
-  master.connect(compressor).connect(analyser).connect(context.destination);
+  master.connect(compressor).connect(analyser).connect(options.destination ?? context.destination);
   const engineBus = context.createGain();
   const tireBus = context.createGain();
   const environmentBus = context.createGain();
@@ -575,7 +580,7 @@ export function createCarAudio(
       transientNoise.stop();
       engineNode?.disconnect();
       tireNode?.disconnect();
-      void context.close();
+      if (ownsContext) void context.close();
     },
   };
 }

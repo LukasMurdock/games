@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { createCarAudio, type CarAudio } from "../audio/car-audio";
+import { createCarAudio, type CarAudio, type CarAudioOptions } from "../audio/car-audio";
 import type { DrivingProfile } from "../driving-profiles";
 import type { DrivingVehicleFrame } from "../simulation/types";
 import { createDriftSmoke, createSkidMarks } from "../vehicle/effects";
@@ -32,6 +32,7 @@ export function createNullPlayerPresentation(): PlayerPresentation {
 export function createPlayerPresentation(
   scene: THREE.Scene,
   initialProfile: DrivingProfile,
+  audioOptions: CarAudioOptions = {},
 ): PlayerPresentation {
   let profile = initialProfile;
   let audio: CarAudio | null = null;
@@ -43,7 +44,7 @@ export function createPlayerPresentation(
 
   return {
     start() {
-      audio ??= createCarAudio(profile);
+      audio ??= createCarAudio(profile, audioOptions);
     },
     reset(position: THREE.Vector3, heading: number) {
       driftSmoke.reset();
@@ -89,7 +90,7 @@ export function createPlayerPresentation(
       audio = null;
       profile = nextProfile;
       if (audioWasStarted) {
-        const nextAudio = createCarAudio(profile);
+        const nextAudio = createCarAudio(profile, audioOptions);
         nextAudio?.setPaused(audioPaused);
         audio = nextAudio;
       }

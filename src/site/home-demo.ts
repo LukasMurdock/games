@@ -3,11 +3,12 @@ import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
-import { createCarAudio, type CarAudio } from "../games/drive/audio/car-audio";
+import type { CarAudioParameters } from "../games/drive/audio/car-audio";
 import { DRIVING_PROFILES } from "../games/drive/driving-profiles";
 import { createDrivingVehicleSimulation } from "../games/drive/simulation/vehicle-simulation";
 import type { DriftPhase } from "../games/drive/types";
 import { createCar } from "../games/drive/vehicle/create-car";
+import { createDemoAudio, type DemoAudio } from "./demo-audio";
 
 const DURATION = 40;
 const PRODUCTION_DRIVE_TRACE = buildProductionDriveTrace();
@@ -174,19 +175,43 @@ function startDemo(target: HTMLCanvasElement) {
   renderer.toneMappingExposure = 1.15;
 
   const soundButton = document.querySelector<HTMLButtonElement>("#demo-sound");
-  let carAudio: CarAudio | null = null;
+  let demoAudio: DemoAudio | null = null;
   let soundEnabled = false;
-  soundButton?.addEventListener("click", () => {
-    if (!carAudio) carAudio = createCarAudio(DRIVING_PROFILES.aggressive);
-    if (!carAudio) {
-      soundButton.textContent = "Sound unavailable";
-      soundButton.disabled = true;
+  let soundStarting = false;
+  soundButton?.addEventListener("click", async () => {
+    if (soundStarting) return;
+    if (soundEnabled && demoAudio) {
+      soundEnabled = false;
+      demoAudio.setMuted(true);
+      soundButton.setAttribute("aria-pressed", "false");
+      soundButton.textContent = "Sound on";
       return;
     }
-    soundEnabled = !soundEnabled;
-    carAudio.setPaused(!soundEnabled);
-    soundButton.setAttribute("aria-pressed", String(soundEnabled));
-    soundButton.textContent = soundEnabled ? "Sound off" : "Sound on";
+
+    soundStarting = true;
+    soundButton.disabled = true;
+    soundButton.textContent = "Starting sound…";
+    try {
+      demoAudio ??= createDemoAudio();
+      if (!demoAudio) throw new Error("Web Audio is unavailable");
+      await demoAudio.whenReady();
+      soundEnabled = true;
+      const schedulingLead = demoAudio.restart();
+      demoAudio.setMuted(false);
+      forcedTime = null;
+      startedAt = performance.now() + schedulingLead * 1000;
+      title?.classList.remove("is-visible");
+      soundButton.setAttribute("aria-pressed", "true");
+      soundButton.textContent = "Sound off";
+      soundButton.disabled = false;
+    } catch (error) {
+      console.error("The demo soundtrack could not start.", error);
+      demoAudio?.destroy();
+      demoAudio = null;
+      soundButton.textContent = "Sound unavailable";
+    } finally {
+      soundStarting = false;
+    }
   });
 
   const scene = new THREE.Scene();
@@ -271,7 +296,8 @@ function startDemo(target: HTMLCanvasElement) {
 
   replay?.addEventListener("click", () => {
     forcedTime = null;
-    startedAt = performance.now();
+    const schedulingLead = soundEnabled ? demoAudio?.restart() ?? 0 : 0;
+    startedAt = performance.now() + schedulingLead * 1000;
     title?.classList.remove("is-visible");
   });
 
@@ -295,9 +321,10 @@ function startDemo(target: HTMLCanvasElement) {
     previousFrameTime = now;
     let elapsed = driftLab
       ? driftLab.getTime(now)
-      : forcedTime ?? (now - startedAt) / 1000;
+      : forcedTime ?? Math.max(0, (now - startedAt) / 1000);
     if (!driftLab && forcedTime === null && elapsed >= DURATION) {
-      startedAt = now;
+      const schedulingLead = soundEnabled ? demoAudio?.restart() ?? 0 : 0;
+      startedAt = now + schedulingLead * 1000;
       elapsed = 0;
       title?.classList.remove("is-visible");
     }
@@ -414,9 +441,8 @@ function startDemo(target: HTMLCanvasElement) {
         * (0.28 + 0.28 * Math.sin(clock * 1.7 + index));
     });
 
-    if (carAudio && soundEnabled) {
-      updateDemoCarAudio(carAudio, audioPose, dt);
-      carAudio.setPaused(resolution > 0.98);
+    if (demoAudio) {
+      demoAudio.update(time, demoCarAudioParameters(audioPose, dt), signal.position.x / 8);
     }
 
     bloom.strength = 1.45 + resolution * 0.9;
@@ -435,14 +461,14 @@ function startDemo(target: HTMLCanvasElement) {
   window.addEventListener("pagehide", () => {
     cancelAnimationFrame(frameId);
     window.removeEventListener("resize", resize);
-    carAudio?.destroy();
+    demoAudio?.destroy();
     composer.dispose();
     renderer.dispose();
   }, { once: true });
 }
 
-function updateDemoCarAudio(audio: CarAudio, pose: ProductionTraceSample | null, dt: number) {
-  audio.update({
+function demoCarAudioParameters(pose: ProductionTraceSample | null, dt: number): CarAudioParameters {
+  return {
     dt,
     speed: pose?.speed ?? 0,
     forwardSpeed: pose?.forwardSpeed ?? 0,
@@ -455,7 +481,7 @@ function updateDemoCarAudio(audio: CarAudio, pose: ProductionTraceSample | null,
     throttle: pose ? 1 : 0.18,
     braking: pose?.braking ?? false,
     reversing: false,
-  });
+  };
 }
 
 type DriftLab = {

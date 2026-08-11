@@ -19,6 +19,7 @@ export default defineConfig({
             drive: resolve(import.meta.dirname, "drive/index.html"),
             driveDyno: resolve(import.meta.dirname, "drive/labs/dyno/index.html"),
             driveManeuverLab: resolve(import.meta.dirname, "drive/labs/maneuvers/index.html"),
+            driveSoundtrackLab: resolve(import.meta.dirname, "drive/labs/soundtrack/index.html"),
             legacyDyno: resolve(import.meta.dirname, "dyno/index.html"),
             legacyManeuverLab: resolve(import.meta.dirname, "maneuver-lab/index.html"),
             networkTest: resolve(import.meta.dirname, "network-test/index.html"),

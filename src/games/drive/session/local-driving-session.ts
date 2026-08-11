@@ -1,4 +1,5 @@
 import type * as THREE from "three";
+import type { CarAudioOptions } from "../audio/car-audio";
 import type { DrivingProfile } from "../driving-profiles";
 import { createPlayerController } from "../player/player-controller";
 import type { PlayerController, PlayerEvent } from "../player/types";
@@ -12,6 +13,7 @@ import type { WorldRuntime } from "../world/types";
  */
 export function createLocalDrivingSession(options: {
   scene: THREE.Scene;
+  audioOptions?: CarAudioOptions;
   world: WorldRuntime;
   profile: DrivingProfile;
   controlMode: ControlMode;

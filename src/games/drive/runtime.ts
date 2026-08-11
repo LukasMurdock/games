@@ -1,4 +1,6 @@
 import * as THREE from "three";
+import { createDrivingAudioMixer } from "./audio/driving-audio-mixer";
+import { SOUNDTRACKS, type SoundtrackId } from "./audio/soundtrack-registry";
 import { DRIVING_PROFILES } from "./driving-profiles";
 import { createLeaderboardToast } from "./feedback/leaderboard-toast";
 import { createSpeedLines } from "./feedback/speed-lines";
@@ -14,6 +16,9 @@ import { buildWorld } from "./world/build-world";
 const UP = new THREE.Vector3(0, 1, 0);
 const MANUAL_CONTROLS_UNLOCKED_KEY = "driving-game:manual-controls-unlocked:v1";
 const CONTROL_MODE_KEY = "driving-game:control-mode:v1";
+const MUSIC_VOLUME_KEY = "driving-game:music-volume:v1";
+const MUSIC_MUTED_KEY = "driving-game:music-muted:v1";
+const VEHICLE_VOLUME_KEY = "driving-game:vehicle-volume:v1";
 const MANUAL_CONTROL_CODE = [
   "ArrowUp",
   "ArrowUp",
@@ -44,6 +49,11 @@ export function startDrivingGame(root: HTMLElement, options: DrivingGameOptions 
   const pauseDriveTime = root.querySelector<HTMLElement>("#pause-drive-time");
   const resumeButton = root.querySelector<HTMLButtonElement>("#resume-driving");
   const fullscreenButton = root.querySelector<HTMLButtonElement>("#fullscreen-button");
+  const musicVolumeControl = root.querySelector<HTMLInputElement>("#music-volume");
+  const musicMuteControl = root.querySelector<HTMLButtonElement>("#music-mute");
+  const vehicleVolumeControl = root.querySelector<HTMLInputElement>("#vehicle-volume");
+  const soundtrackControl = root.querySelector<HTMLSelectElement>("#game-soundtrack");
+  const nowPlaying = root.querySelector<HTMLElement>("#now-playing");
   if (
     !canvas
     || !speedLinesCanvas
@@ -198,6 +208,37 @@ export function startDrivingGame(root: HTMLElement, options: DrivingGameOptions 
   applyDebugLayerVisibility();
   const speedLines = createSpeedLines(speedLinesCanvas);
   const leaderboardToast = createLeaderboardToast(leaderboardNode);
+  const gameAudio = createDrivingAudioMixer();
+  let displayedSoundtrack: SoundtrackId | null = null;
+  function updateSoundtrackPresentation() {
+    const trackId = gameAudio?.getCurrentTrack() ?? "night-signal";
+    if (trackId === displayedSoundtrack) return;
+    displayedSoundtrack = trackId;
+    const definition = SOUNDTRACKS[trackId];
+    if (soundtrackControl) soundtrackControl.value = trackId;
+    if (nowPlaying) nowPlaying.textContent = `${definition.title} · ${definition.subtitle}`;
+  }
+  updateSoundtrackPresentation();
+  const storedMusicVolumeValue = readStoredValue(MUSIC_VOLUME_KEY);
+  const storedMusicVolume = Number(storedMusicVolumeValue);
+  const initialMusicVolume = storedMusicVolumeValue !== null && Number.isFinite(storedMusicVolume)
+    ? THREE.MathUtils.clamp(storedMusicVolume, 0, 1)
+    : 0.58;
+  const storedVehicleVolumeValue = readStoredValue(VEHICLE_VOLUME_KEY);
+  const storedVehicleVolume = Number(storedVehicleVolumeValue);
+  const initialVehicleVolume = storedVehicleVolumeValue !== null && Number.isFinite(storedVehicleVolume)
+    ? THREE.MathUtils.clamp(storedVehicleVolume, 0, 1)
+    : 1;
+  const musicMuted = readStoredBoolean(MUSIC_MUTED_KEY);
+  gameAudio?.setMusicVolume(initialMusicVolume);
+  gameAudio?.setMusicMuted(musicMuted);
+  gameAudio?.setVehicleVolume(initialVehicleVolume);
+  if (musicVolumeControl) musicVolumeControl.value = String(Math.round(initialMusicVolume * 100));
+  if (vehicleVolumeControl) vehicleVolumeControl.value = String(Math.round(initialVehicleVolume * 100));
+  if (musicMuteControl) {
+    musicMuteControl.setAttribute("aria-pressed", String(musicMuted));
+    musicMuteControl.textContent = musicMuted ? "Unmute music" : "Mute music";
+  }
   const getLeaderboardTitle = () => mode.id === "chase" ? "Longest survival" : "Longest drives";
   const getLeaderboardResults = () => getLocalDriveLeaderboard({
     mode: mode.id,
@@ -227,6 +268,7 @@ export function startDrivingGame(root: HTMLElement, options: DrivingGameOptions 
 
   function endDrive(reason: DriveEndReason = "manual") {
     recordDrive(reason);
+    gameAudio?.cue(reason === "mode" && mode.id === "chase" ? "capture" : "reset");
     driveTime = 0;
     player.reset();
     modeController?.reset(reason);
@@ -234,10 +276,17 @@ export function startDrivingGame(root: HTMLElement, options: DrivingGameOptions 
 
   const player = createLocalDrivingSession({
     scene,
+    audioOptions: gameAudio ? {
+      context: gameAudio.context,
+      destination: gameAudio.vehicleDestination,
+    } : undefined,
     world,
     profile: DRIVING,
     controlMode,
-    onEvent: (event) => modeController?.onPlayerEvent(event),
+    onEvent: (event) => {
+      if (event.type === "collision") gameAudio?.collision();
+      modeController?.onPlayerEvent(event);
+    },
     onResetRequested: endDrive,
   });
   const shadowFocus = new THREE.Vector2(Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY);
@@ -276,6 +325,14 @@ export function startDrivingGame(root: HTMLElement, options: DrivingGameOptions 
     clearControls();
     player.setPaused(paused);
     modeController?.pause(paused);
+    const playerState = player.getSnapshot();
+    gameAudio?.updateMusic({
+      running,
+      paused,
+      speed: THREE.MathUtils.clamp(playerState.speed / DRIVING.maximumSpeed, 0, 1),
+      drift: THREE.MathUtils.clamp(Math.abs(playerState.visualSlip) / THREE.MathUtils.degToRad(35), 0, 1),
+      chaseTier: mode.id === "chase" ? chaseTierAt(driveTime) : 0,
+    });
     pauseDriveTimeDisplay.textContent = formatDriveTime(driveTime);
     pauseLayer.classList.toggle("is-visible", paused);
     pauseLayer.setAttribute("aria-hidden", String(!paused));
@@ -589,6 +646,26 @@ export function startDrivingGame(root: HTMLElement, options: DrivingGameOptions 
   pauseButton.addEventListener("click", () => setPaused(true), listenerOptions);
   resumeButton.addEventListener("click", () => setPaused(false), listenerOptions);
   fullscreenControl?.addEventListener("click", toggleFullscreen, listenerOptions);
+  musicVolumeControl?.addEventListener("input", () => {
+    const volume = THREE.MathUtils.clamp(Number(musicVolumeControl.value) / 100, 0, 1);
+    gameAudio?.setMusicVolume(volume);
+    writeStoredValue(MUSIC_VOLUME_KEY, String(volume));
+  }, listenerOptions);
+  vehicleVolumeControl?.addEventListener("input", () => {
+    const volume = THREE.MathUtils.clamp(Number(vehicleVolumeControl.value) / 100, 0, 1);
+    gameAudio?.setVehicleVolume(volume);
+    writeStoredValue(VEHICLE_VOLUME_KEY, String(volume));
+  }, listenerOptions);
+  soundtrackControl?.addEventListener("change", () => {
+    gameAudio?.setTrack(soundtrackControl.value as SoundtrackId, "bar");
+  }, listenerOptions);
+  musicMuteControl?.addEventListener("click", () => {
+    const muted = musicMuteControl.getAttribute("aria-pressed") !== "true";
+    musicMuteControl.setAttribute("aria-pressed", String(muted));
+    musicMuteControl.textContent = muted ? "Unmute music" : "Mute music";
+    gameAudio?.setMusicMuted(muted);
+    writeStoredValue(MUSIC_MUTED_KEY, String(muted));
+  }, listenerOptions);
   document.addEventListener("fullscreenchange", () => {
     updateFullscreenPresentation();
     scheduleResize();
@@ -599,6 +676,7 @@ export function startDrivingGame(root: HTMLElement, options: DrivingGameOptions 
   startControl.addEventListener("click", () => {
     running = true;
     paused = false;
+    void gameAudio?.start();
     player.start();
     player.setPaused(false);
     modeController?.start();
@@ -817,6 +895,15 @@ export function startDrivingGame(root: HTMLElement, options: DrivingGameOptions 
       player.update(elapsed);
       modeController?.update(elapsed);
     }
+    const musicPlayerState = player.getSnapshot();
+    gameAudio?.updateMusic({
+      running,
+      paused,
+      speed: THREE.MathUtils.clamp(musicPlayerState.speed / DRIVING.maximumSpeed, 0, 1),
+      drift: THREE.MathUtils.clamp(Math.abs(musicPlayerState.visualSlip) / THREE.MathUtils.degToRad(35), 0, 1),
+      chaseTier: mode.id === "chase" ? chaseTierAt(driveTime) : 0,
+    });
+    updateSoundtrackPresentation();
     updateCamera(elapsed);
     updatePlayerCenteredShadows();
     updateSpeedLines(wallElapsed);
@@ -832,12 +919,19 @@ export function startDrivingGame(root: HTMLElement, options: DrivingGameOptions 
     resizeObserver.disconnect();
     if (resizeFrame) window.cancelAnimationFrame(resizeFrame);
     player.destroy();
+    gameAudio?.destroy();
     modeController?.destroy();
     world.destroy();
     leaderboardToast.destroy();
     speedLines.destroy();
     renderer.dispose();
   }, { once: true, signal: lifecycle.signal });
+}
+
+function chaseTierAt(driveTime: number) {
+  if (driveTime >= 45) return 3;
+  if (driveTime >= 20) return 2;
+  return 1;
 }
 
 function readStoredValue(key: string) {
