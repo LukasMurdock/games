@@ -6,13 +6,17 @@ import {
   startDrivingGame,
 } from "./index";
 
+const requestedMap = new URLSearchParams(window.location.search).get("map");
+const initialMapId = isGameMapId(requestedMap) ? requestedMap : DEFAULT_GAME_MAP_ID;
 const mapSelects = document.querySelectorAll<HTMLElement>(".map-select");
 for (const mapSelect of mapSelects) {
+  mapSelect.append(createMapCycleButton("previous"));
   for (const map of Object.values(GAME_MAPS)) {
     const button = document.createElement("button");
     button.type = "button";
     button.dataset.mapOption = map.id;
-    button.setAttribute("aria-pressed", "false");
+    button.setAttribute("aria-pressed", String(map.id === initialMapId));
+    button.hidden = map.id !== initialMapId;
 
     const title = document.createElement("strong");
     title.textContent = map.title;
@@ -21,6 +25,20 @@ for (const mapSelect of mapSelects) {
     button.append(title, description);
     mapSelect.append(button);
   }
+  mapSelect.append(createMapCycleButton("next"));
+}
+
+function createMapCycleButton(direction: "previous" | "next") {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = `map-cycle map-cycle--${direction}`;
+  button.dataset.mapCycle = direction;
+  button.setAttribute("aria-label", `${direction === "previous" ? "Previous" : "Next"} map`);
+  const arrow = document.createElement("span");
+  arrow.setAttribute("aria-hidden", "true");
+  arrow.textContent = direction === "previous" ? "←" : "→";
+  button.append(arrow);
+  return button;
 }
 
 const root = document.querySelector<HTMLElement>("#driving-game");

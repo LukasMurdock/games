@@ -106,6 +106,8 @@ export function startDrivingGame(root: HTMLElement, options: DrivingGameOptions 
   const introDescription = intro.querySelector<HTMLElement>(".intro-card > p:not(.eyebrow)");
   const modeOptions = root.querySelectorAll<HTMLButtonElement>("[data-mode-option]");
   const mapOptions = root.querySelectorAll<HTMLButtonElement>("[data-map-option]");
+  const mapCycleControls = root.querySelectorAll<HTMLButtonElement>("[data-map-cycle]");
+  const mapIds = Object.keys(GAME_MAPS) as GameMapId[];
   const controlModeOptions = root.querySelectorAll<HTMLButtonElement>("[data-control-mode-option]");
   const controlModeSettings = root.querySelectorAll<HTMLElement>(".control-mode-setting");
   const manualControlGuides = root.querySelectorAll<HTMLElement>(".manual-control-guide");
@@ -121,7 +123,9 @@ export function startDrivingGame(root: HTMLElement, options: DrivingGameOptions 
   }
   function updateMapPresentation() {
     mapOptions.forEach((option) => {
-      option.setAttribute("aria-pressed", String(option.dataset.mapOption === map.id));
+      const selected = option.dataset.mapOption === map.id;
+      option.setAttribute("aria-pressed", String(selected));
+      option.hidden = !selected;
     });
     root.dataset.gameMap = map.id;
   }
@@ -604,6 +608,13 @@ export function startDrivingGame(root: HTMLElement, options: DrivingGameOptions 
       const mapId = option.dataset.mapOption;
       if (!mapId || !(mapId in GAME_MAPS)) return;
       selectMap(mapId as GameMapId);
+    }, listenerOptions);
+  });
+  mapCycleControls.forEach((control) => {
+    control.addEventListener("click", () => {
+      const currentIndex = mapIds.indexOf(map.id as GameMapId);
+      const offset = control.dataset.mapCycle === "previous" ? -1 : 1;
+      selectMap(mapIds[(currentIndex + offset + mapIds.length) % mapIds.length]);
     }, listenerOptions);
   });
 
