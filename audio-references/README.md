@@ -7,11 +7,11 @@ Local research material only. None of these files are integrated into the game o
 | Reference | Local source | Role |
 |---|---|---|
 | NM2255 900HP 2JZ Silvia S15 | `sources/nm2255-s15.webm` | Exterior tonal and projection reference |
-| Garrett G40-900 2JZ dyno | `sources/garrett-g40-dyno.mp4` | Cleaner dyno sweep and harmonic reference |
+| Garrett G40-900 2JZ dyno | `clips/garrett-01-dyno-pull.wav` | Cleaner dyno sweep and harmonic reference |
 | Sceriffo 1000HP 2JZ GT86 | `sources/sceriffo-gt86.m4a` | Onboard drift, shift, and load behavior |
 | Herutsu isolated tire skids preview | `sources/herutsu-isolated-tire-skids.m4a` | Isolated squeal bands, instability, and envelope behavior |
 
-Low-resolution videos and yt-dlp metadata are retained in `sources/` for scene/timestamp verification.
+Audio references and yt-dlp metadata are retained locally; source videos are excluded from the repository.
 
 ## Candidate clips
 
