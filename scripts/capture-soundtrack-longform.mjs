@@ -11,6 +11,8 @@ const tracks = {
   "night-signal": { title: "Night Signal", bpm: 114, bars: 112 },
   shadowline: { title: "Shadowline", bpm: 114, bars: 112 },
   "bass-canyon": { title: "Bass Canyon", bpm: 126.05, bars: 108 },
+  "midnight-vector": { title: "Midnight Vector", bpm: 100, bars: 32 },
+  "glass-circuit": { title: "Glass Circuit", bpm: 140, bars: 48 },
 };
 const requestedTrackId = process.env.SOUNDTRACK_ID ?? "night-signal";
 const trackId = Object.hasOwn(tracks, requestedTrackId) ? requestedTrackId : "night-signal";
@@ -34,6 +36,20 @@ const sections = trackId === "bass-canyon" ? [
   { title: "Second drop", startBar: 69, endBar: 78 },
   { title: "Peak", startBar: 78, endBar: 98 },
   { title: "Loop-out", startBar: 98, endBar: 108 },
+] : trackId === "midnight-vector" ? [
+  { title: "Filtered pulse", startBar: 0, endBar: 8 },
+  { title: "Beat entry", startBar: 8, endBar: 16 },
+  { title: "Ostinato development", startBar: 16, endBar: 24 },
+  { title: "Peak", startBar: 24, endBar: 30 },
+  { title: "Loop-out", startBar: 30, endBar: 32 },
+] : trackId === "glass-circuit" ? [
+  { title: "Melodic introduction", startBar: 0, endBar: 8 },
+  { title: "Core groove", startBar: 8, endBar: 16 },
+  { title: "Motif development", startBar: 16, endBar: 24 },
+  { title: "G-minor contrast", startBar: 24, endBar: 32 },
+  { title: "Peak", startBar: 32, endBar: 40 },
+  { title: "Release", startBar: 40, endBar: 46 },
+  { title: "Loop-out", startBar: 46, endBar: 48 },
 ] : [
   { title: "Introduction", startBar: 0, endBar: 8 },
   { title: "Core groove", startBar: 8, endBar: 24 },

@@ -104,7 +104,8 @@ startButton.addEventListener("click", async () => {
   carAudio?.setPaused(false);
   updateMixIsolation();
   updateState();
-  status.value = "Soundtrack running · 114 BPM";
+  const definition = SOUNDTRACKS[mixer.getCurrentTrack()];
+  status.value = `${definition.title} · ${definition.bpm} BPM`;
   startButton.textContent = "Soundtrack running";
 });
 

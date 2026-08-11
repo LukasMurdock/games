@@ -14,9 +14,13 @@
     "soundtrack:analyze": "node scripts/capture-soundtrack.mjs",
     "soundtrack:analyze:02": "SOUNDTRACK_ID=shadowline node scripts/capture-soundtrack.mjs",
     "soundtrack:analyze:03": "SOUNDTRACK_ID=bass-canyon node scripts/capture-soundtrack.mjs",
+    "soundtrack:analyze:04": "SOUNDTRACK_ID=midnight-vector node scripts/capture-soundtrack.mjs",
+    "soundtrack:analyze:05": "SOUNDTRACK_ID=glass-circuit node scripts/capture-soundtrack.mjs",
     "soundtrack:analyze:long": "node scripts/capture-soundtrack-longform.mjs",
     "soundtrack:analyze:long:02": "SOUNDTRACK_ID=shadowline node scripts/capture-soundtrack-longform.mjs",
     "soundtrack:analyze:long:03": "SOUNDTRACK_ID=bass-canyon node scripts/capture-soundtrack-longform.mjs",
+    "soundtrack:analyze:long:04": "SOUNDTRACK_ID=midnight-vector node scripts/capture-soundtrack-longform.mjs",
+    "soundtrack:analyze:long:05": "SOUNDTRACK_ID=glass-circuit node scripts/capture-soundtrack-longform.mjs",
     "soundtrack:profile": "node scripts/profile-soundtrack.mjs",
     "types:generate": "wrangler types"
   },

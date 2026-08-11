@@ -252,8 +252,9 @@ export function createDrivingAudioMixer(options: DrivingAudioMixerOptions = {}):
 function nextSessionTrack(): SoundtrackId {
   try {
     const key = "driving-game:last-soundtrack:v1";
-    const previous = window.localStorage.getItem(key);
-    const next: SoundtrackId = previous === "night-signal" ? "shadowline" : "night-signal";
+    const previous = window.localStorage.getItem(key) as SoundtrackId | null;
+    const previousIndex = previous ? SOUNDTRACK_IDS.indexOf(previous) : -1;
+    const next = SOUNDTRACK_IDS[(previousIndex + 1) % SOUNDTRACK_IDS.length];
     window.localStorage.setItem(key, next);
     return next;
   } catch {
