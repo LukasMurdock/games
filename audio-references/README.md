@@ -13,6 +13,15 @@ Local research material only. None of these files are integrated into the game o
 
 Audio references and yt-dlp metadata are retained locally; source videos are excluded from the repository.
 
+## Online reference log
+
+These links are queued for engine-sound research only. They have not been downloaded, analyzed, or used to calibrate a production engine definition.
+
+| Reference | Creator | Role |
+|---|---|---|
+| [4 Cylinder Exhaust Sound Comparison](https://www.youtube.com/watch?v=jGG-ipo8E0I) | Maisteer | Candidate comparison reference for inline-four exhaust character across configurations |
+| [How F1 Sound is made](https://www.youtube.com/watch?v=vA-Z3ncTdUY) | Maisteer | Candidate synthesis reference for firing frequencies, harmonics, and high-rev engine character |
+
 ## Candidate clips
 
 All clips are stereo, 48 kHz, 24-bit PCM WAV. Labels describe their intended audition role and remain provisional until listening.
