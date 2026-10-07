@@ -18,6 +18,7 @@ The driving game is split along the things that can vary independently:
 - `multiplayer/` — production `GameSimulation`, bounded GameNet payload codec, fixed first-release composition, deterministic spawn/collision ownership, hosted/joined Direct Invite sessions, snapshot interpolation, browser runtime, and render-only remote vehicle fleets.
 - `types.ts` — launch options and shared runtime state names.
 - `design.md` — experiential north star.
+- `physics-comparison-kerr.md` — vehicle mechanics compared with Pat Kerr's 2D rigid-body car model, with candidate improvements.
 
 The local frame path is now `runtime → LocalDrivingSession → DrivingVehicleSimulation → PlayerPresentation`. The simulation exclusively owns position, velocity, heading, controls, drift phases, boost, collision response, and time-step updates as plain numeric state. Control double taps use simulation time rather than `performance.now()`, and world access crosses a numeric `DrivingWorldQuery`. `PlayerController` only adapts detached simulation snapshots to the legacy Three.js-facing API and forwards presentation frames. The mechanics therefore run headlessly with no Three.js state, scene, audio, effects, DOM, or browser clock. This is the boundary an authoritative multiplayer simulation can consume; single-player still owns its existing cameras, modes, HUD, audio, and effects.
 

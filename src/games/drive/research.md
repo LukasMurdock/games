@@ -50,6 +50,8 @@
 
 * **“A Model Predictive Control Framework for Assisted Vehicle Drifting” (2026).** Probably the strongest technical validation of the direction we arrived at for your arcade system. The driver supplies a desired sideslip reference while an assistance system maintains stability; importantly, the driver can continuously vary that requested sideslip. That's remarkably close conceptually to our **“player requests angle; invisible system stabilizes it”** design. ([arXiv][28])
 
+* **Pat Kerr — “2D Vehicles” (1996 prototype, 2026 recreation).** The original 2D rigid-body car model that became the basis of *Grand Theft Auto*'s vehicles. A rigid body with torque, plus deliberately approximate tyres: per-tyre velocity is split into rolling and sideways components, each resisted proportionally (weak rolling, strong lateral), and the handbrake raises rear rolling resistance while cutting rear lateral grip. Barrier contacts use point velocity and lever arm, so off-centre hits spin the body. Our grip damping is the same idea collapsed to the centre of mass; see `physics-comparison-kerr.md`. ([Pat Kerr][29])
+
 Those are the main explicit research sources that fed the conclusions we've developed.
 
 The **five sources I'd carry into every future “research oracle” prompt** are Criterion's *Vehicle Feel Masterclass*, the *Inertial Drift* designer interview, Turn 10's *Forza Motorsport 6* audio talk, Polyphony's sound-programming philosophy, and the 2026 assisted-drifting paper. Together they cover the core philosophy we've converged on: **believable underlying dynamics, strong invisible assistance, direct player authority over sideslip, camera as part of handling, and sound as actionable vehicle-state feedback.** ([GDC Vault][3])
@@ -81,3 +83,4 @@ The **five sources I'd carry into every future “research oracle” prompt** ar
 [26]: https://www.audiokinetic.com/en/public-library/2024.1.4_8780/?id=creating_random_container&source=Help&utm_source=chatgpt.com "Creating Random Containers"
 [27]: https://arxiv.org/abs/2202.13513?utm_source=chatgpt.com "Aggressive Racecar Drifting Control Using Onboard Cameras and Inertial Measurement Unit"
 [28]: https://arxiv.org/abs/2607.15117?utm_source=chatgpt.com "A Model Predictive Control Framework for Assisted Vehicle Drifting"
+[29]: https://patkerr.co.uk/2d-vehicles/ "2D Vehicle Physics Prototype · Pat Kerr"
