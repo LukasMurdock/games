@@ -285,6 +285,7 @@ export function buildWorld(
   return {
     spawnPosition,
     spawnHeading,
+    circuitPath: course ? { points: course.points, widths: course.widths } : undefined,
     isOnPavement(position: THREE.Vector3) {
       diagnostics.pavementQueries++;
       const candidates = pavementGrid.query(position.x, position.x, position.z, position.z);

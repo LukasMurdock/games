@@ -45,6 +45,8 @@ export type WorldDebugLayer = "pavement" | "colliders" | "grid" | "source" | "di
 export type WorldRuntime = {
   spawnPosition: THREE.Vector3;
   spawnHeading: number;
+  /** Centerline and widths of a semantic drift circuit, when the map defines one. */
+  circuitPath?: { points: readonly { x: number; z: number }[]; widths: readonly number[] };
   isOnPavement: (position: THREE.Vector3) => boolean;
   queryCollision: (position: THREE.Vector3, radius: number) => WorldCollision | null;
   findSafePlacement: (candidates: readonly THREE.Vector3[], radius: number) => THREE.Vector3 | null;

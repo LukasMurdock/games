@@ -11,6 +11,7 @@ The driving game is split along the things that can vary independently:
 - `player/` — thin compatibility adapter exposing the stable player API plus the separate Three.js/audio/effects presentation observer.
 - `vehicle/` — player-car construction, drift smoke, and skid marks.
 - `feedback/` — inexpensive screen-space gameplay feedback such as redline speed lines.
+- `intro/` — the page's opening sequence in the site's Robert Abel & Associates grammar (see `DEMO.md`): `light-drawing.ts` renders the selected map's roads, circuit, lots, perimeter, and rising building contours as light revealed by a white-hot front from the spawn; `intro-director.ts` owns the motion-control camera, black film-grain veil the lit world develops through, wireframe car, intro-only bloom, the slow attract orbit framed beside or beneath the menu, map redraws, and the launch dive into the gameplay camera. Any input skips to the menu, and reduced-motion players get the original static menu.
 - `world/` — map construction, circuit geometry, buildings, props, visible perimeter fencing, and collision bounds.
 - `local-leaderboard.ts` — persistent local drive results and future command-facing queries.
 - `maps/` — world geometry, environment settings, pavement, spawn, and boundaries.

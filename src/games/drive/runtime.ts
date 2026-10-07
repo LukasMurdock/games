@@ -4,6 +4,7 @@ import { createDrivingAudioMixer } from "./audio/driving-audio-mixer";
 import { SOUNDTRACKS, type SoundtrackId } from "./audio/soundtrack-registry";
 import { DRIVING_PROFILES } from "./driving-profiles";
 import { AdaptiveResolution } from "./core/adaptive-resolution";
+import { createIntroDirector, type IntroDirector } from "./intro/intro-director";
 import { createLeaderboardToast } from "./feedback/leaderboard-toast";
 import { createSpeedLines } from "./feedback/speed-lines";
 import { addLocalDriveResult, getLocalDriveLeaderboard } from "./local-leaderboard";
@@ -211,6 +212,21 @@ export function startDrivingGame(root: HTMLElement, options: DrivingGameOptions 
   sun.shadow.camera.far = map.environment.shadowFar;
   scene.add(sun, sun.target);
 
+  // Reduced-motion players keep the original static menu and an instant start.
+  const introDirector: IntroDirector | null = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    ? null
+    : createIntroDirector({
+        scene,
+        renderer,
+        onPhase(phase) {
+          root.dataset.introPhase = phase;
+          requestRender();
+        },
+      });
+  function skipIntro() {
+    if (introDirector?.phase === "signal" || introDirector?.phase === "attract") introDirector.skip();
+  }
+
   function applyMapEnvironment() {
     scene.background = new THREE.Color(map.environment.background);
     scene.fog = new THREE.Fog(
@@ -365,6 +381,8 @@ export function startDrivingGame(root: HTMLElement, options: DrivingGameOptions 
   }
 
   function setPaused(nextPaused: boolean) {
+    // Pausing mid-launch lands the camera immediately so the pause applies to a live drive.
+    if (nextPaused && introDirector?.phase === "launch") introDirector.completeLaunch();
     if (!running) return;
     paused = nextPaused;
     clearControls();
@@ -463,6 +481,7 @@ export function startDrivingGame(root: HTMLElement, options: DrivingGameOptions 
     }
     updateMapPresentation();
     resetCameraTracking();
+    if (introDirector && introDirector.phase !== "idle") introDirector.play(map, world, "redraw");
     void prewarmShaders();
     requestRender();
 
@@ -729,15 +748,21 @@ export function startDrivingGame(root: HTMLElement, options: DrivingGameOptions 
   document.addEventListener("visibilitychange", () => {
     if (document.hidden && running && !paused) setPaused(true);
   }, listenerOptions);
-  startControl.addEventListener("click", () => {
+  function beginDriving() {
     running = true;
     paused = false;
-    void gameAudio?.start();
-    player.start();
     player.setPaused(false);
     modeController?.start();
+    gameCanvas.focus();
+    requestRender();
+  }
+  startControl.addEventListener("click", () => {
+    if (running || introDirector?.phase === "launch") return;
+    void gameAudio?.start();
+    player.start();
     introLayer.classList.add("is-hidden");
-    canvas.focus();
+    if (introDirector) introDirector.launch(activeCamera, beginDriving);
+    else beginDriving();
   }, listenerOptions);
 
   const initialPlayerState = player.getSnapshot();
@@ -874,6 +899,13 @@ export function startDrivingGame(root: HTMLElement, options: DrivingGameOptions 
 
     applyPixelRatio();
     renderer.setSize(width, height, false);
+    introDirector?.setViewport(
+      width,
+      height,
+      renderer.getPixelRatio(),
+      // Mirrors the stylesheet: wide landscape menus sit left; portrait cards fill the middle.
+      width >= 900 && height > 520 && width > height ? "wide" : height > width * 1.2 ? "portrait" : "centered",
+    );
     speedLines.resize(width, height);
     perspectiveCamera.aspect = width / height;
     perspectiveCamera.updateProjectionMatrix();
@@ -917,6 +949,12 @@ export function startDrivingGame(root: HTMLElement, options: DrivingGameOptions 
   player.reset();
   modeController.reset("manual");
   resetCameraTracking();
+  if (introDirector) {
+    introDirector.play(map, world, "opening");
+    // Any deliberate input during the opening jumps straight to the developed menu shot.
+    window.addEventListener("keydown", skipIntro, listenerOptions);
+    root.addEventListener("pointerdown", skipIntro, listenerOptions);
+  }
 
   let lastDiagnosticsUpdate = 0;
   function updateMapDiagnostics(now: number) {
@@ -966,6 +1004,7 @@ export function startDrivingGame(root: HTMLElement, options: DrivingGameOptions 
 
   let lastTime = performance.now();
   let lastFrameWork = 0;
+  let lastIntroRender = 0;
   function frame(now: number) {
     if (destroyed) return;
     const workStarted = performance.now();
@@ -992,7 +1031,36 @@ export function startDrivingGame(root: HTMLElement, options: DrivingGameOptions 
       chaseTier: mode.id === "chase" ? chaseTierAt(driveTime) : 0,
     });
     updateSoundtrackPresentation();
-    updateCamera(elapsed);
+    let cameraUpdated = false;
+    if (introDirector) {
+      // The director owns the camera until its launch hands control to the gameplay camera,
+      // whose pose is still advanced here so the dive can track it. It is always ticked so
+      // its hand-off flash can fade after control returns.
+      if (introDirector.phase !== "idle") {
+        updateCamera(elapsed);
+        cameraUpdated = true;
+      }
+      const focus = player.getSnapshot();
+      const directing = introDirector.update(elapsed, {
+        x: focus.position.x,
+        z: focus.position.z,
+        heading: focus.heading,
+      });
+      if (directing) {
+        updatePlayerCenteredShadows();
+        // The settled attract orbit is slow; 30 fps keeps the menu cheap.
+        if (introDirector.sequencing || now - lastIntroRender >= 32) {
+          lastIntroRender = now;
+          introDirector.render();
+        }
+        updateMapDiagnostics(now);
+        lastFrameWork = performance.now() - workStarted;
+        requestAnimationFrame(frame);
+        return;
+      }
+      if (introDirector.sequencing) requestRender();
+    }
+    if (!cameraUpdated) updateCamera(elapsed);
     updatePlayerCenteredShadows();
     updateSpeedLines(wallElapsed);
     const camera = activeCamera();
@@ -1018,6 +1086,7 @@ export function startDrivingGame(root: HTMLElement, options: DrivingGameOptions 
     world.destroy();
     leaderboardToast.destroy();
     speedLines.destroy();
+    introDirector?.destroy();
     renderer.dispose();
   }, { once: true, signal: lifecycle.signal });
 }
