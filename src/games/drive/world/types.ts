@@ -1,6 +1,6 @@
 import type * as THREE from "three";
 
-export type ObstacleKind = "building" | "tree" | "streetlight" | "barrier" | "sign";
+export type ObstacleKind = "building" | "tree" | "streetlight" | "barrier" | "sign" | "pole";
 
 export type Obstacle = {
   kind: ObstacleKind;
@@ -33,6 +33,7 @@ export type WorldDiagnostics = {
   junctions: number;
   accessRoads: number;
   staticBatches: number;
+  roadside?: import("./roadside").RoadsideStats;
   batchedSources: number;
   collisionQueries: number;
   collisionCandidates: number;

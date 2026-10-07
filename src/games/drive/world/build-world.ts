@@ -5,6 +5,7 @@ import { addBoundaryFence } from "./boundary-fence";
 import { addBuilding, type BuildingFrontSide } from "./buildings";
 import { createWorldDebugLayers } from "./debug-geometry";
 import { circlePavement, containsPavement, corridorPavement, parkingPavement, roadPavement } from "./pavement";
+import { addRoadsideDressing } from "./roadside";
 import { addBarrierBatch, addSignBatch, addStreetlightBatch, addTreeBatch } from "./props";
 import {
   addJunctionBatch,
@@ -239,6 +240,7 @@ export function buildWorld(
   forEachSpatialChunk(map.streetlights, (points) => addStreetlightBatch(worldRoot, obstacles, points));
   forEachSpatialChunk(map.barriers, (points) => addBarrierBatch(worldRoot, obstacles, points));
   addSignBatch(worldRoot, obstacles, map.signs ?? []);
+  const roadside = addRoadsideDressing(worldRoot, obstacles, map, pavedAt);
   const staticBatches = batchStaticMeshes(worldRoot);
 
   let spawnPosition: THREE.Vector3;
@@ -280,6 +282,7 @@ export function buildWorld(
     junctions: corridorJunctions.length,
     accessRoads: roadSegments.filter((road) => road.role === "access").length,
     staticBatches: staticBatches.batches,
+    roadside,
     batchedSources: staticBatches.sourceInstances,
     collisionQueries: 0,
     collisionCandidates: 0,
