@@ -49,6 +49,8 @@ export type WorldRuntime = {
   /** Centerline and widths of a semantic drift circuit, when the map defines one. */
   circuitPath?: { points: readonly { x: number; z: number }[]; widths: readonly number[] };
   isOnPavement: (position: THREE.Vector3) => boolean;
+  /** Presentation-only height of drivable surface features such as ramps; 0 on flat ground. */
+  surfaceHeightAt: (x: number, z: number) => number;
   queryCollision: (position: THREE.Vector3, radius: number) => WorldCollision | null;
   findSafePlacement: (candidates: readonly THREE.Vector3[], radius: number) => THREE.Vector3 | null;
   isOutsideBoundary: (position: THREE.Vector3, radius: number) => boolean;

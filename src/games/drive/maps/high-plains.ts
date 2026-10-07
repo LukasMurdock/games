@@ -1,16 +1,35 @@
 import {
   corridorSidePoints,
   defineDrivingMap,
+  driftPad,
   freightRow,
-  openReversal,
   placeAlongCorridor,
   placeStamp,
+  rampPark,
   scatterPoints,
   serviceYard,
+  type StampPlacement,
 } from "./authoring";
+import { roadPath, shapeNetwork } from "./road-shaping";
 import type { RoadCorridorDefinition } from "./types";
 
-const HIGH_PLAINS_CORRIDORS = [
+const SPAWN = { x: -390, z: -330, heading: 0.36 };
+
+/**
+ * Quarry Switchbacks: drops south off the southeast junction in three hairpins to a
+ * quarry-floor drift pad.
+ */
+const quarry = roadPath({ x: 230, z: -360 }, Math.PI)
+  .straight(14)
+  .arc(16, -90)
+  .switchbacks(3, 88, 13, 1);
+const quarryEnd = quarry.end;
+const QUARRY_PAD = {
+  x: quarryEnd.x + Math.sin(quarryEnd.heading) * 22,
+  z: quarryEnd.z + Math.cos(quarryEnd.heading) * 22,
+};
+
+const BASE_CORRIDORS = [
   {
     id: "west-spine",
     width: 18,
@@ -128,7 +147,158 @@ const HIGH_PLAINS_CORRIDORS = [
       { x: 100, z: 403.33 },
     ],
   },
+  {
+    id: "quarry-switchbacks",
+    width: 14,
+    markings: true,
+    points: quarry.points(),
+    allowDeadEndEnd: true,
+  },
 ] satisfies readonly RoadCorridorDefinition[];
+
+const REVERSALS = {
+  north: { x: -85, z: 393.42 },
+  south: { x: 65, z: -315 },
+  east: { x: 323.46, z: 105 },
+};
+const LANDMARKS = [
+  { x: -175, z: 270 },
+  { x: 105, z: 285 },
+];
+
+const BASE_DISTRICTS: StampPlacement[] = [
+  placeAlongCorridor("spawn-freight", freightRow({
+    sheds: 3,
+    shedSize: [12, 20],
+    gap: 14,
+    colors: [0xc19b70, 0xaa8062],
+  }), { corridor: "west-spine", distance: 60, side: "right", setback: 10, rotation: Math.PI / 2 }),
+  placeAlongCorridor("west-freight", freightRow({
+    sheds: 3,
+    shedSize: [15, 25],
+    gap: 17,
+    colors: [0xb78c68, 0xa97f60, 0xc09a70],
+  }), {
+    corridor: "west-spine",
+    distance: 360,
+    side: "right",
+    setback: 10,
+    entranceOffsets: [-26, 26],
+    rotation: Math.PI / 2,
+  }),
+  placeAlongCorridor("east-service", serviceYard({
+    width: 112,
+    depth: 86,
+    color: 0x718f8a,
+  }), {
+    corridor: "east-spine",
+    distance: 280,
+    side: "left",
+    setback: 10,
+    entranceWidth: 17,
+    entranceOffsets: [-28, 28],
+  }),
+  placeStamp("north-pad", driftPad({ radius: 26 }), REVERSALS.north),
+  placeAlongCorridor("southwest-service", serviceYard({
+    width: 104,
+    depth: 74,
+    color: 0xc0a276,
+  }), {
+    corridor: "southern-cut",
+    distance: 280,
+    side: "left",
+    setback: 10,
+    entranceWidth: 17,
+    entranceOffsets: [-26, 26],
+  }),
+  placeAlongCorridor("central-service", serviceYard({
+    width: 112,
+    depth: 84,
+    color: 0x829a8d,
+  }), {
+    corridor: "midland-loop",
+    distance: 560,
+    side: "left",
+    setback: 10,
+    entranceWidth: 17,
+    entranceOffsets: [-28, 28],
+  }),
+  placeAlongCorridor("north-service", serviceYard({
+    width: 82,
+    depth: 60,
+    color: 0xb79a72,
+  }), {
+    corridor: "north-service-link",
+    distance: 120,
+    side: "left",
+    setback: 24,
+    entranceWidth: 17,
+    entranceOffsets: [-20, 20],
+  }),
+  placeAlongCorridor("east-freight", freightRow({
+    sheds: 5,
+    shedSize: [14, 25],
+    gap: 17,
+    colors: [0x668985, 0x789993, 0x587b78],
+  }), {
+    corridor: "east-spine",
+    distance: 500,
+    side: "right",
+    setback: 10,
+    entranceOffsets: [-38, 38],
+    rotation: Math.PI / 2,
+  }),
+  placeAlongCorridor("south-freight", freightRow({
+    sheds: 3,
+    shedSize: [14, 24],
+    gap: 15,
+    colors: [0x688b88, 0x789b94],
+  }), {
+    corridor: "southern-cut",
+    distance: 440,
+    side: "left",
+    setback: 10,
+    entranceOffsets: [-24, 24],
+    rotation: Math.PI / 2,
+  }),
+  placeStamp("south-pad", driftPad({ radius: 24 }), REVERSALS.south),
+  placeAlongCorridor("west-service", serviceYard({
+    width: 110,
+    depth: 78,
+    color: 0x9d8468,
+  }), {
+    corridor: "crosswind-link",
+    distance: 400,
+    side: "right",
+    setback: 10,
+    entranceWidth: 17,
+    entranceOffsets: [-28, 28],
+  }),
+  placeStamp("east-pad", driftPad({ radius: 26 }), REVERSALS.east),
+  placeStamp("quarry-floor", driftPad({ radius: 22, color: 0x5a5244 }), QUARRY_PAD),
+  placeAlongCorridor("jump-park", rampPark({ width: 30, depth: 64, kickers: 2 }), {
+    corridor: "lowland-connector",
+    distance: 330,
+    side: "left",
+    setback: 12,
+    entranceWidth: 16,
+    entranceOffsets: [-18],
+    rotation: Math.PI / 2,
+  }),
+];
+
+/** Long runs become sweepers and S-bends; junctions, frontages, pads, and the spawn stay put. */
+const shaped = shapeNetwork(BASE_CORRIDORS, BASE_DISTRICTS, {
+  seed: 0x4a1e9d3,
+  preserve: ["quarry-switchbacks"],
+  keepPoints: [
+    { ...SPAWN, radius: 60 },
+    ...Object.values(REVERSALS).map((point) => ({ ...point, radius: 50, near: 30 })),
+    ...LANDMARKS.map((point) => ({ ...point, radius: 60, near: 40 })),
+    { ...QUARRY_PAD, radius: 40, near: 30 },
+  ],
+});
+const HIGH_PLAINS_CORRIDORS = shaped.corridors;
 
 const landscapeTrees = [
   ...scatterPoints({
@@ -181,7 +351,8 @@ const landscapeTrees = [
   }),
 ];
 
-const roadsideLights = corridorSidePoints(HIGH_PLAINS_CORRIDORS, {
+// Hairpin climbs stay unlit so drifts through the switchbacks have nothing to hit.
+const roadsideLights = corridorSidePoints(HIGH_PLAINS_CORRIDORS.filter((corridor) => corridor.id !== "quarry-switchbacks"), {
   spacing: 58,
   shoulderOffset: 4.5,
 });
@@ -216,116 +387,7 @@ export const HIGH_PLAINS_MAP = defineDrivingMap({
     { x: 260, z: 290, width: 130, depth: 140, rotation: -0.08, color: 0x8b805f },
     { x: 5, z: 55, width: 160, depth: 100, rotation: 0.1, color: 0x8b7654 },
   ],
-  districts: [
-    placeAlongCorridor("spawn-freight", freightRow({
-      sheds: 3,
-      shedSize: [12, 20],
-      gap: 14,
-      colors: [0xc19b70, 0xaa8062],
-    }), { corridor: "west-spine", distance: 60, side: "right", setback: 10, rotation: Math.PI / 2 }),
-    placeAlongCorridor("west-freight", freightRow({
-      sheds: 3,
-      shedSize: [15, 25],
-      gap: 17,
-      colors: [0xb78c68, 0xa97f60, 0xc09a70],
-    }), {
-      corridor: "west-spine",
-      distance: 360,
-      side: "right",
-      setback: 10,
-      entranceOffsets: [-26, 26],
-      rotation: Math.PI / 2,
-    }),
-    placeAlongCorridor("east-service", serviceYard({
-      width: 112,
-      depth: 86,
-      color: 0x718f8a,
-    }), {
-      corridor: "east-spine",
-      distance: 280,
-      side: "left",
-      setback: 10,
-      entranceWidth: 17,
-      entranceOffsets: [-28, 28],
-    }),
-    placeStamp("north-reversal", openReversal(44), { x: -85, z: 393.42 }),
-    placeAlongCorridor("southwest-service", serviceYard({
-      width: 104,
-      depth: 74,
-      color: 0xc0a276,
-    }), {
-      corridor: "southern-cut",
-      distance: 280,
-      side: "left",
-      setback: 10,
-      entranceWidth: 17,
-      entranceOffsets: [-26, 26],
-    }),
-    placeAlongCorridor("central-service", serviceYard({
-      width: 112,
-      depth: 84,
-      color: 0x829a8d,
-    }), {
-      corridor: "midland-loop",
-      distance: 560,
-      side: "left",
-      setback: 10,
-      entranceWidth: 17,
-      entranceOffsets: [-28, 28],
-    }),
-    placeAlongCorridor("north-service", serviceYard({
-      width: 82,
-      depth: 60,
-      color: 0xb79a72,
-    }), {
-      corridor: "north-service-link",
-      distance: 120,
-      side: "left",
-      setback: 24,
-      entranceWidth: 17,
-      entranceOffsets: [-20, 20],
-    }),
-    placeAlongCorridor("east-freight", freightRow({
-      sheds: 5,
-      shedSize: [14, 25],
-      gap: 17,
-      colors: [0x668985, 0x789993, 0x587b78],
-    }), {
-      corridor: "east-spine",
-      distance: 500,
-      side: "right",
-      setback: 10,
-      entranceOffsets: [-38, 38],
-      rotation: Math.PI / 2,
-    }),
-    placeAlongCorridor("south-freight", freightRow({
-      sheds: 3,
-      shedSize: [14, 24],
-      gap: 15,
-      colors: [0x688b88, 0x789b94],
-    }), {
-      corridor: "southern-cut",
-      distance: 440,
-      side: "left",
-      setback: 10,
-      entranceOffsets: [-24, 24],
-      rotation: Math.PI / 2,
-    }),
-    placeStamp("south-reversal", openReversal(40), { x: 65, z: -315 }),
-    placeAlongCorridor("west-service", serviceYard({
-      width: 110,
-      depth: 78,
-      color: 0x9d8468,
-    }), {
-      corridor: "crosswind-link",
-      distance: 400,
-      side: "right",
-      setback: 10,
-      entranceWidth: 17,
-      entranceOffsets: [-28, 28],
-    }),
-    placeStamp("east-reversal", openReversal(42), { x: 323.46, z: 105 }),
-  ],
+  districts: shaped.districts,
   buildings: [
     { x: -175, z: 270, width: 10, depth: 10, height: 29, color: 0xd0643f, style: "tower" },
     {
@@ -341,10 +403,7 @@ export const HIGH_PLAINS_MAP = defineDrivingMap({
   ],
   trees: landscapeTrees,
   streetlights: roadsideLights,
-  barriers: [
-    { x: -42, z: -313 }, { x: 18, z: -321 },
-    { x: 208, z: 77 }, { x: 214, z: 79 },
-  ],
+  barriers: [],
   chasePlacement: {
     preferredAreas: [
       { kind: "rectangle", x: 0, z: -320, width: 820, depth: 75 },
@@ -355,10 +414,9 @@ export const HIGH_PLAINS_MAP = defineDrivingMap({
       { kind: "rectangle", x: 82, z: -90, width: 58, depth: 500 },
     ],
     noSpawnAreas: [
-      { kind: "circle", x: -85, z: 393.42, radius: 52 },
-      { kind: "circle", x: 65, z: -315, radius: 48 },
-      { kind: "circle", x: 323.46, z: 105, radius: 50 },
+      ...Object.values(REVERSALS).map((point) => ({ kind: "circle" as const, ...point, radius: 34 })),
+      { kind: "circle", ...QUARRY_PAD, radius: 30 },
     ],
   },
-  spawn: { source: "position", x: -390, z: -330, heading: 0.36 },
+  spawn: { source: "position", ...SPAWN },
 });

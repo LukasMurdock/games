@@ -214,9 +214,12 @@ function splitCorridorAtJunctions(
   junctions: readonly CorridorJunction[],
 ) {
   const measurements = corridorMeasurements(corridor);
+  // Strips tuck slightly under the (higher) junction polygon so their meeting edge can
+  // never open into a hairline crack where the ground shows through.
+  const overlap = 0.8;
   const cuts = junctions.flatMap((junction) => junctionDistances(corridor, junction).map((distance) => ({
-    start: Math.max(0, distance - junction.radius),
-    end: Math.min(measurements.total, distance + junction.radius),
+    start: Math.max(0, distance - junction.radius + overlap),
+    end: Math.min(measurements.total, distance + junction.radius - overlap),
   }))).sort((a, b) => a.start - b.start);
   const merged: Array<{ start: number; end: number }> = [];
   for (const cut of cuts) {

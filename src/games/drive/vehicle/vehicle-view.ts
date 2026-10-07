@@ -6,7 +6,7 @@ import { createCar } from "./create-car";
 export type VehicleView = {
   reset(position: { x: number; z: number }, heading: number): void;
   syncPosition(position: { x: number; z: number }): void;
-  update(frame: DrivingVehicleFrame): void;
+  update(frame: DrivingVehicleFrame, lift?: { elevation: number; pitch: number }): void;
   applyAuthoritativeSnapshot(snapshot: AuthoritativeDrivingPlayer, dt: number, paused?: boolean): void;
   destroy(): void;
 };
@@ -17,8 +17,9 @@ export function createVehicleView(scene: THREE.Scene): VehicleView {
   let steeringVisual = 0;
   scene.add(car.group);
 
+  let elevation = 0;
   function setPosition(position: { x: number; z: number }) {
-    car.group.position.set(position.x, 0.06, position.z);
+    car.group.position.set(position.x, 0.06 + elevation, position.z);
   }
 
   function animate(options: {
@@ -30,6 +31,8 @@ export function createVehicleView(scene: THREE.Scene): VehicleView {
     targetRoll: number;
     targetPitch: number;
     braking: boolean;
+    /** Extra pitch from ramps and airtime, applied with a faster response. */
+    liftPitch?: number;
   }) {
     steeringVisual = THREE.MathUtils.lerp(
       steeringVisual,
@@ -43,10 +46,11 @@ export function createVehicleView(scene: THREE.Scene): VehicleView {
       options.targetRoll,
       1 - Math.exp(-7 * options.dt),
     );
+    const liftPitch = options.liftPitch ?? 0;
     car.group.rotation.x = THREE.MathUtils.lerp(
       car.group.rotation.x,
-      options.targetPitch,
-      1 - Math.exp(-9 * options.dt),
+      options.targetPitch + liftPitch,
+      1 - Math.exp(-(liftPitch !== 0 ? 16 : 9) * options.dt),
     );
     car.frontWheels.forEach((wheel) => (wheel.rotation.y = steeringVisual));
     const wheelSpin = options.forwardSpeed * options.dt / 0.42;
@@ -60,11 +64,13 @@ export function createVehicleView(scene: THREE.Scene): VehicleView {
   return {
     reset(position, heading) {
       steeringVisual = 0;
+      elevation = 0;
       setPosition(position);
       car.group.rotation.set(0, heading, 0);
     },
     syncPosition: setPosition,
-    update(frame) {
+    update(frame, lift) {
+      elevation = lift?.elevation ?? 0;
       animate({
         dt: frame.dt,
         position: frame.position,
@@ -74,6 +80,7 @@ export function createVehicleView(scene: THREE.Scene): VehicleView {
         targetRoll: frame.targetRoll,
         targetPitch: frame.targetPitch,
         braking: frame.braking || frame.handbrake || frame.hardDriftKick > 0.05,
+        liftPitch: lift?.pitch ?? 0,
       });
     },
     applyAuthoritativeSnapshot(snapshot, dt, paused = false) {

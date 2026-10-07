@@ -46,6 +46,7 @@ export function createPlayerController({
   const presentation = suppliedPresentation
     ?? (scene ? createPlayerPresentation(scene, profile, audioOptions) : createNullPlayerPresentation());
   const worldQuery = suppliedWorldQuery ?? createDrivingWorldQuery(initialWorld as WorldRuntime);
+  if (initialWorld) presentation.setSurface(initialWorld.surfaceHeightAt);
   const presentationPosition = new THREE.Vector3();
   const snapshot: PlayerSnapshot = {
     position: new THREE.Vector3(),
@@ -106,6 +107,7 @@ export function createPlayerController({
     },
     setWorld(world) {
       simulation.setWorld(createDrivingWorldQuery(world));
+      presentation.setSurface(world.surfaceHeightAt);
     },
     setControlMode: simulation.setControlMode,
     setDrivingProfile(nextProfile) {

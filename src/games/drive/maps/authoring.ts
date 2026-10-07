@@ -1,6 +1,9 @@
+import { MINIMUM_SEGMENT } from "./road-shaping";
 import type {
   BuildingDefinition,
   DistrictMarkingDefinition,
+  DriftPadDefinition,
+  RampDefinition,
   GameMapDefinition,
   GroundPatchDefinition,
   ParkingLotDefinition,
@@ -15,6 +18,8 @@ export type Point2 = { x: number; z: number };
 export type MapStamp = {
   roads?: readonly RoadSegmentDefinition[];
   parkingLots?: readonly ParkingLotDefinition[];
+  pads?: readonly DriftPadDefinition[];
+  ramps?: readonly RampDefinition[];
   groundPatches?: readonly GroundPatchDefinition[];
   buildings?: readonly BuildingDefinition[];
   trees?: readonly PropDefinition[];
@@ -56,12 +61,14 @@ type ExpandedStamp = Required<MapStamp> & {
 
 export type DrivingMapSource = Omit<
   GameMapDefinition,
-  "roads" | "corridors" | "parkingLots" | "groundPatches" | "buildings" | "trees" | "streetlights" | "barriers" | "signs" | "districtMarkings" | "compiledDistricts"
+  "roads" | "corridors" | "parkingLots" | "pads" | "ramps" | "groundPatches" | "buildings" | "trees" | "streetlights" | "barriers" | "signs" | "districtMarkings" | "compiledDistricts"
 > & {
   roads?: readonly RoadSegmentDefinition[];
   corridors: readonly RoadCorridorDefinition[];
   districts?: readonly StampPlacement[];
   parkingLots?: readonly ParkingLotDefinition[];
+  pads?: readonly DriftPadDefinition[];
+  ramps?: readonly RampDefinition[];
   groundPatches?: readonly GroundPatchDefinition[];
   buildings?: readonly BuildingDefinition[];
   trees?: readonly PropDefinition[];
@@ -74,6 +81,9 @@ export type DrivingMapSource = Omit<
 export function defineDrivingMap(source: DrivingMapSource): GameMapDefinition {
   validateSource(source);
   const expanded = compileDistricts(source);
+  // Scattered and side-of-road props must never stand on pavement or inside a building;
+  // districts can land on top of earlier scatter, and those props would be terminal.
+  const clearOfPavement = createPavementFilter(source, expanded);
   const map: GameMapDefinition = {
     id: source.id,
     title: source.title,
@@ -84,10 +94,14 @@ export function defineDrivingMap(source: DrivingMapSource): GameMapDefinition {
     roads: [...(source.roads ?? []), ...expanded.flatMap((stamp) => stamp.roads)],
     corridors: source.corridors,
     parkingLots: [...(source.parkingLots ?? []), ...expanded.flatMap((stamp) => stamp.parkingLots)],
+    pads: [...(source.pads ?? []), ...expanded.flatMap((stamp) => stamp.pads)],
+    ramps: [...(source.ramps ?? []), ...expanded.flatMap((stamp) => stamp.ramps)],
     groundPatches: [...(source.groundPatches ?? []), ...expanded.flatMap((stamp) => stamp.groundPatches)],
     buildings: [...(source.buildings ?? []), ...expanded.flatMap((stamp) => stamp.buildings)],
-    trees: [...(source.trees ?? []), ...expanded.flatMap((stamp) => stamp.trees)],
-    streetlights: [...(source.streetlights ?? []), ...expanded.flatMap((stamp) => stamp.streetlights)],
+    trees: [...(source.trees ?? []), ...expanded.flatMap((stamp) => stamp.trees)]
+      .filter((tree) => clearOfPavement(tree, 1.2)),
+    streetlights: [...(source.streetlights ?? []), ...expanded.flatMap((stamp) => stamp.streetlights)]
+      .filter((light) => clearOfPavement(light, 0.4)),
     barriers: [...(source.barriers ?? []), ...expanded.flatMap((stamp) => stamp.barriers)],
     signs: [...(source.signs ?? []), ...expanded.flatMap((stamp) => stamp.signs)],
     districtMarkings: [
@@ -320,6 +334,41 @@ export function shoppingPlaza(options: { width: number; depth: number; color: nu
     districtMarkings: [
       ...markingOutline(-options.width * 0.18, -options.depth * 0.08, 12, 18),
       ...markingOutline(options.width * 0.18, -options.depth * 0.08, 12, 18),
+    ],
+  };
+}
+
+/** A round, open drift pad ringed by floodlights. */
+export function driftPad(options: { radius: number; color?: number }): MapStamp {
+  const lightRadius = options.radius + 6;
+  return {
+    pads: [{ x: 0, z: 0, radius: options.radius, color: options.color }],
+    streetlights: [0, 1, 2, 3].map((index) => ({
+      x: Math.sin(Math.PI / 4 + index * Math.PI / 2) * lightRadius,
+      z: Math.cos(Math.PI / 4 + index * Math.PI / 2) * lightRadius,
+    })),
+  };
+}
+
+/**
+ * A car park whose central aisle is a jump line: kicker ramps spaced along local +z,
+ * parking bays on both edges, and lights at the corners.
+ */
+export function rampPark(options: { width: number; depth: number; kickers: number }): MapStamp {
+  const spacing = options.depth / (options.kickers + 1);
+  return {
+    parkingLots: [{ x: 0, z: 0, width: options.width, depth: options.depth }],
+    ramps: Array.from({ length: options.kickers }, (_, index) => ({
+      x: 0,
+      z: -options.depth / 2 + spacing * (index + 1),
+      width: 6.5,
+      length: 9,
+      height: 1.25,
+    })),
+    // Mid-side lights keep the lot's ends free for the roads it usually backs onto.
+    streetlights: [
+      { x: -options.width / 2 - 2.5, z: 0 },
+      { x: options.width / 2 + 2.5, z: 0 },
     ],
   };
 }
@@ -595,6 +644,12 @@ function expandStampAt(
       ...transformPoint(lot),
       rotation: (lot.rotation ?? 0) + heading,
     })),
+    pads: (stamp.pads ?? []).map((pad) => ({ ...pad, ...transformPoint(pad) })),
+    ramps: (stamp.ramps ?? []).map((ramp) => ({
+      ...ramp,
+      ...transformPoint(ramp),
+      rotation: (ramp.rotation ?? 0) + heading,
+    })),
     groundPatches: (stamp.groundPatches ?? []).map((patch) => ({
       ...patch,
       ...transformPoint(patch),
@@ -650,6 +705,8 @@ function stampBounds(stamp: MapStamp) {
   };
   (stamp.roads ?? []).forEach(includeRectangle);
   (stamp.parkingLots ?? []).forEach(includeRectangle);
+  (stamp.pads ?? []).forEach((pad) => includeRectangle({ x: pad.x, z: pad.z, width: pad.radius * 2, depth: pad.radius * 2 }));
+  (stamp.ramps ?? []).forEach((ramp) => includeRectangle({ ...ramp, depth: ramp.length }));
   (stamp.groundPatches ?? []).forEach(includeRectangle);
   (stamp.buildings ?? []).forEach(includeRectangle);
   for (const point of [
@@ -703,6 +760,8 @@ function compiledStampBounds(stamp: ExpandedStamp) {
     includePoint(bounds, item.x + extentX, item.z + extentZ);
   };
   stamp.parkingLots.forEach(includeRectangle);
+  stamp.pads.forEach((pad) => includeRectangle({ x: pad.x, z: pad.z, width: pad.radius * 2, depth: pad.radius * 2 }));
+  stamp.ramps.forEach((ramp) => includeRectangle({ ...ramp, depth: ramp.length }));
   stamp.groundPatches.forEach(includeRectangle);
   stamp.buildings.forEach(includeRectangle);
   for (const point of [...stamp.trees, ...stamp.streetlights, ...stamp.barriers, ...stamp.signs]) {
@@ -816,6 +875,48 @@ function boundsOverlap(
     && first.maxZ > second.minZ - margin;
 }
 
+function createPavementFilter(source: DrivingMapSource, expanded: readonly ExpandedStamp[]) {
+  const rectangles = [
+    ...(source.roads ?? []),
+    ...(source.parkingLots ?? []),
+    ...(source.buildings ?? []),
+    ...(source.ramps ?? []).map((ramp) => ({ ...ramp, depth: ramp.length })),
+    ...expanded.flatMap((stamp) => [
+      ...stamp.roads,
+      ...stamp.parkingLots,
+      ...stamp.buildings,
+      ...stamp.ramps.map((ramp) => ({ ...ramp, depth: ramp.length })),
+    ]),
+  ];
+  const circles = [...(source.pads ?? []), ...expanded.flatMap((stamp) => stamp.pads)];
+  return (point: Point2, margin: number) => {
+    for (const rectangle of rectangles) {
+      const rotation = rectangle.rotation ?? 0;
+      const dx = point.x - rectangle.x;
+      const dz = point.z - rectangle.z;
+      const localX = Math.cos(rotation) * dx - Math.sin(rotation) * dz;
+      const localZ = Math.sin(rotation) * dx + Math.cos(rotation) * dz;
+      if (Math.abs(localX) <= rectangle.width / 2 + margin && Math.abs(localZ) <= rectangle.depth / 2 + margin) return false;
+    }
+    for (const circle of circles) {
+      if (Math.hypot(point.x - circle.x, point.z - circle.z) <= circle.radius + margin) return false;
+    }
+    for (const corridor of source.corridors) {
+      for (let index = 1; index < corridor.points.length; index++) {
+        if (Math.sqrt(distanceToSegmentSquared(point, corridor.points[index - 1], corridor.points[index]))
+          <= corridor.width / 2 + margin) return false;
+      }
+    }
+    return true;
+  };
+}
+
+function segmentTurn(previous: Point2, vertex: Point2, next: Point2) {
+  const incoming = Math.atan2(vertex.x - previous.x, vertex.z - previous.z);
+  const outgoing = Math.atan2(next.x - vertex.x, next.z - vertex.z);
+  return Math.atan2(Math.sin(outgoing - incoming), Math.cos(outgoing - incoming));
+}
+
 function analyzeLayout(source: DrivingMapSource, districts: readonly ExpandedStamp[]) {
   let corridorLength = 0;
   let shortestSegment = Number.POSITIVE_INFINITY;
@@ -832,6 +933,13 @@ function analyzeLayout(source: DrivingMapSource, districts: readonly ExpandedSta
         corridor.points[segmentIndex].z - corridor.points[segmentIndex - 1].z,
       );
       corridorLength += length;
+      // Curves are sampled finely by design; only short *straight* links are a layout smell.
+      const previous = corridor.points[segmentIndex - 2];
+      const next = corridor.points[segmentIndex + 1];
+      const bendsIn = previous ? Math.abs(segmentTurn(previous, corridor.points[segmentIndex - 1], corridor.points[segmentIndex])) > 0.06 : false;
+      const bendsOut = next ? Math.abs(segmentTurn(corridor.points[segmentIndex - 1], corridor.points[segmentIndex], next)) > 0.06 : false;
+      // Sub-12u pieces are curve samples (meanders turn gently per sample), not links.
+      if (bendsIn || bendsOut || length < 12) continue;
       shortestSegment = Math.min(shortestSegment, length);
       if (length < 45) shortSegments++;
     }
@@ -1072,8 +1180,8 @@ function validateSource(source: DrivingMapSource) {
       }
     }
     for (let index = 1; index < corridor.points.length; index++) {
-      if (Math.sqrt(distanceSquared(corridor.points[index - 1], corridor.points[index])) < 10) {
-        throw new Error(`Map "${source.id}" corridor "${corridor.id}" has a segment shorter than 10 units.`);
+      if (Math.sqrt(distanceSquared(corridor.points[index - 1], corridor.points[index])) < MINIMUM_SEGMENT - 1e-6) {
+        throw new Error(`Map "${source.id}" corridor "${corridor.id}" has a segment shorter than ${MINIMUM_SEGMENT} units.`);
       }
     }
   }
@@ -1096,6 +1204,8 @@ function validateCompiledContent(map: GameMapDefinition) {
     }
   });
   map.parkingLots.forEach((lot) => assertPoint("parking lot", lot, Math.hypot(lot.width, lot.depth) / 2));
+  (map.pads ?? []).forEach((pad) => assertPoint("drift pad", pad, pad.radius));
+  (map.ramps ?? []).forEach((ramp) => assertPoint("ramp", ramp, Math.hypot(ramp.width, ramp.length) / 2));
   map.groundPatches?.forEach((patch) => assertPoint(
     "ground patch",
     patch,

@@ -68,7 +68,12 @@ export function addRoadsideDressing(
   edges.forEach((edge, edgeIndex) => {
     let distanceSincePole = POLE_SPACING * 0.5;
     let previousPole: THREE.Vector3[] | null = null;
-    const wantsPoles = edge.source === "corridor" && edgeIndex % 2 === 0;
+    // Utility lines belong to long rural roads, not short town streets or hairpin
+    // climbs, where the wires would criss-cross the switchback legs.
+    const wantsPoles = edge.source === "corridor"
+      && edgeIndex % 2 === 0
+      && polylineLength(edge.points) >= 260
+      && totalTurning(edge.points) < Math.PI * 2;
     for (let index = 1; index < edge.points.length; index++) {
       const start = edge.points[index - 1];
       const end = edge.points[index];
@@ -463,6 +468,24 @@ function distanceToBox(x: number, z: number, box: { minX: number; maxX: number; 
   const dx = Math.max(box.minX - x, 0, x - box.maxX);
   const dz = Math.max(box.minZ - z, 0, z - box.maxZ);
   return Math.hypot(dx, dz);
+}
+
+function totalTurning(points: readonly Point[]) {
+  let turning = 0;
+  for (let index = 1; index < points.length - 1; index++) {
+    const incoming = Math.atan2(points[index].x - points[index - 1].x, points[index].z - points[index - 1].z);
+    const outgoing = Math.atan2(points[index + 1].x - points[index].x, points[index + 1].z - points[index].z);
+    turning += Math.abs(angleDifference(incoming, outgoing));
+  }
+  return turning;
+}
+
+function polylineLength(points: readonly Point[]) {
+  let length = 0;
+  for (let index = 1; index < points.length; index++) {
+    length += Math.hypot(points[index].x - points[index - 1].x, points[index].z - points[index - 1].z);
+  }
+  return length;
 }
 
 function angleDifference(from: number, to: number) {

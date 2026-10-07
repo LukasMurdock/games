@@ -6,6 +6,7 @@ import { addBuilding, type BuildingFrontSide } from "./buildings";
 import { createWorldDebugLayers } from "./debug-geometry";
 import { circlePavement, containsPavement, corridorPavement, parkingPavement, roadPavement } from "./pavement";
 import { addRoadsideDressing } from "./roadside";
+import { addDriftPads, addRamps, createSurfaceQuery } from "./set-pieces";
 import { addBarrierBatch, addSignBatch, addStreetlightBatch, addTreeBatch } from "./props";
 import {
   addJunctionBatch,
@@ -185,6 +186,10 @@ export function buildWorld(
     }
   });
 
+  addDriftPads(worldRoot, map.pads ?? [], map.environment.road);
+  addRamps(worldRoot, map.ramps ?? []);
+  const surfaceHeightAt = createSurfaceQuery(map.ramps ?? []);
+
   addMarkingBatch(worldRoot, roadMarks, new THREE.MeshBasicMaterial({ color: 0xe4bd42 }), "road-markings");
   addMarkingBatch(worldRoot, taxiwayMarks, new THREE.MeshBasicMaterial({
     color: 0xd8cda4,
@@ -212,6 +217,8 @@ export function buildWorld(
     ...corridors.flatMap(corridorPavement),
     ...corridorJunctions.map((junction) => circlePavement(junction.x, junction.z, junction.radius)),
     ...map.parkingLots.map(parkingPavement),
+    ...(map.pads ?? []).map((pad) => circlePavement(pad.x, pad.z, pad.radius)),
+    ...(map.ramps ?? []).map((ramp) => parkingPavement({ ...ramp, depth: ramp.length })),
     ...(course?.points.map((point, index) => circlePavement(
       point.x,
       point.z,
@@ -236,8 +243,14 @@ export function buildWorld(
     building.rotation,
     streetFacingSide(building, pavedAt),
   ));
-  forEachSpatialChunk(map.trees, (points) => addTreeBatch(worldRoot, obstacles, points));
-  forEachSpatialChunk(map.streetlights, (points) => addStreetlightBatch(worldRoot, obstacles, points));
+  // Trees and lights are terminal obstacles; never let one stand on drivable pavement
+  // (junction envelopes are only known once the network is compiled).
+  forEachSpatialChunk(map.trees.filter((point) => !pavedAt(point.x, point.z)), (points) => (
+    addTreeBatch(worldRoot, obstacles, points)
+  ));
+  forEachSpatialChunk(map.streetlights.filter((point) => !pavedAt(point.x, point.z)), (points) => (
+    addStreetlightBatch(worldRoot, obstacles, points)
+  ));
   forEachSpatialChunk(map.barriers, (points) => addBarrierBatch(worldRoot, obstacles, points));
   addSignBatch(worldRoot, obstacles, map.signs ?? []);
   const roadside = addRoadsideDressing(worldRoot, obstacles, map, pavedAt);
@@ -294,6 +307,7 @@ export function buildWorld(
     spawnPosition,
     spawnHeading,
     circuitPath: course ? { points: course.points, widths: course.widths } : undefined,
+    surfaceHeightAt,
     isOnPavement(position: THREE.Vector3) {
       diagnostics.pavementQueries++;
       const candidates = pavementGrid.query(position.x, position.x, position.z, position.z);

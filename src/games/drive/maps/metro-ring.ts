@@ -4,18 +4,24 @@ import {
   containerYard,
   corridorSidePoints,
   defineDrivingMap,
+  driftPad,
   freightRow,
-  openReversal,
   placeAlongCorridor,
   placeStamp,
+  rampPark,
   roadsideSettlement,
   scatterPoints,
   serviceYard,
   shoppingPlaza,
+  type StampPlacement,
 } from "./authoring";
+import { shapeNetwork } from "./road-shaping";
 import type { RoadCorridorDefinition } from "./types";
 
-const METRO_CORRIDORS = [
+const SPAWN = { x: 0, z: -330, heading: 0 };
+const TOWER = { x: -35, z: 255 };
+
+const BASE_CORRIDORS = [
   {
     id: "ring-southwest",
     width: 24,
@@ -104,67 +110,9 @@ const METRO_CORRIDORS = [
   },
 ] satisfies readonly RoadCorridorDefinition[];
 
-const metroTrees = [
-  ...scatterPoints({
-    seed: 0x510f311,
-    count: 32,
-    bounds: { minX: -320, maxX: -175, minZ: 35, maxZ: 180 },
-    minimumSpacing: 14,
-    avoidCorridors: METRO_CORRIDORS,
-    pavementClearance: 8,
-  }),
-  ...scatterPoints({
-    seed: 0x78a20c4,
-    count: 30,
-    bounds: { minX: 40, maxX: 180, minZ: 220, maxZ: 335 },
-    minimumSpacing: 13,
-    avoidCorridors: METRO_CORRIDORS,
-    pavementClearance: 8,
-  }),
-  ...scatterPoints({
-    seed: 0xc4129e8,
-    count: 30,
-    bounds: { minX: 80, maxX: 260, minZ: -315, maxZ: -190 },
-    minimumSpacing: 14,
-    avoidCorridors: METRO_CORRIDORS,
-    pavementClearance: 8,
-  }),
-  ...scatterPoints({
-    seed: 0x398ac12,
-    count: 28,
-    bounds: { minX: -330, maxX: -210, minZ: -130, maxZ: 100 },
-    minimumSpacing: 14,
-    avoidCorridors: METRO_CORRIDORS,
-    pavementClearance: 8,
-  }),
-];
-
-export const METRO_RING_MAP = defineDrivingMap({
-  id: "metro-ring",
-  title: "Metro Ring",
-  description: "A broad beltway around dense working neighborhoods.",
-  worldLimit: 450,
-  groundSize: 1000,
-  environment: {
-    background: 0xc5d8d3,
-    grass: 0x6f7854,
-    road: 0x3d4341,
-    fogNear: 145,
-    fogFar: 255,
-    cameraFar: 295,
-    sideCameraFar: 265,
-    shadowExtent: 44,
-    shadowFar: 155,
-  },
-  corridors: METRO_CORRIDORS,
-  groundPatches: [
-    { x: -190, z: -180, width: 150, depth: 120, rotation: 0.08, color: 0x81755b },
-    { x: 175, z: -125, width: 170, depth: 130, rotation: -0.06, color: 0x74745e },
-    { x: 225, z: 185, width: 150, depth: 135, rotation: 0.04, color: 0x82795f },
-    { x: -155, z: 210, width: 180, depth: 120, rotation: -0.08, color: 0x77745a },
-  ],
-  districts: [
-    placeStamp("central-reversal", openReversal(30), { x: 0, z: 0 }),
+const BASE_DISTRICTS: StampPlacement[] = [
+    // Where both avenues and the diagonal meet, an open drift plaza.
+    placeStamp("central-plaza", driftPad({ radius: 30 }), { x: 0, z: 0 }),
     placeAlongCorridor("west-civic", civicBlock({
       width: 112,
       depth: 104,
@@ -210,16 +158,94 @@ export const METRO_RING_MAP = defineDrivingMap({
       setback: 8,
       rotation: Math.PI / 2,
     }),
+    placeAlongCorridor("jump-park", rampPark({ width: 34, depth: 84, kickers: 3 }), {
+      corridor: "southeast-transfer",
+      distance: 150,
+      side: "left",
+      setback: 12,
+      entranceWidth: 16,
+      entranceOffsets: [-24],
+      rotation: Math.PI / 2,
+    }),
+  ];
+
+/** Long runs become sweepers and S-bends; junctions, frontages, the plaza, and the spawn stay put. */
+const shaped = shapeNetwork(BASE_CORRIDORS, BASE_DISTRICTS, {
+  seed: 0x3e7a0c5,
+  keepPoints: [
+    { ...SPAWN, radius: 60 },
+    { x: 0, z: 0, radius: 60, near: 30 },
+    { ...TOWER, radius: 50, near: 30 },
   ],
+});
+const METRO_CORRIDORS = shaped.corridors;
+
+const metroTrees = [
+  ...scatterPoints({
+    seed: 0x510f311,
+    count: 32,
+    bounds: { minX: -320, maxX: -175, minZ: 35, maxZ: 180 },
+    minimumSpacing: 14,
+    avoidCorridors: METRO_CORRIDORS,
+    pavementClearance: 8,
+  }),
+  ...scatterPoints({
+    seed: 0x78a20c4,
+    count: 30,
+    bounds: { minX: 40, maxX: 180, minZ: 220, maxZ: 335 },
+    minimumSpacing: 13,
+    avoidCorridors: METRO_CORRIDORS,
+    pavementClearance: 8,
+  }),
+  ...scatterPoints({
+    seed: 0xc4129e8,
+    count: 30,
+    bounds: { minX: 80, maxX: 260, minZ: -315, maxZ: -190 },
+    minimumSpacing: 14,
+    avoidCorridors: METRO_CORRIDORS,
+    pavementClearance: 8,
+  }),
+  ...scatterPoints({
+    seed: 0x398ac12,
+    count: 28,
+    bounds: { minX: -330, maxX: -210, minZ: -130, maxZ: 100 },
+    minimumSpacing: 14,
+    avoidCorridors: METRO_CORRIDORS,
+    pavementClearance: 8,
+  }),
+];
+
+export const METRO_RING_MAP = defineDrivingMap({
+  id: "metro-ring",
+  title: "Metro Ring",
+  description: "A beltway of sweepers around a central drift plaza and a jump park.",
+  worldLimit: 450,
+  groundSize: 1000,
+  environment: {
+    background: 0xc5d8d3,
+    grass: 0x6f7854,
+    road: 0x3d4341,
+    fogNear: 145,
+    fogFar: 255,
+    cameraFar: 295,
+    sideCameraFar: 265,
+    shadowExtent: 44,
+    shadowFar: 155,
+  },
+  corridors: METRO_CORRIDORS,
+  groundPatches: [
+    { x: -190, z: -180, width: 150, depth: 120, rotation: 0.08, color: 0x81755b },
+    { x: 175, z: -125, width: 170, depth: 130, rotation: -0.06, color: 0x74745e },
+    { x: 225, z: 185, width: 150, depth: 135, rotation: 0.04, color: 0x82795f },
+    { x: -155, z: 210, width: 180, depth: 120, rotation: -0.08, color: 0x77745a },
+  ],
+  districts: shaped.districts,
   buildings: [
     { x: -35, z: 255, width: 10, depth: 10, height: 31, color: 0xd16643, style: "tower" },
   ],
   trees: metroTrees,
   streetlights: corridorSidePoints(METRO_CORRIDORS, { spacing: 62, shoulderOffset: 4.5 }),
-  barriers: [
-    { x: -18, z: -45 }, { x: 18, z: -45 },
-    { x: -75, z: -242 }, { x: -67, z: -246 },
-  ],
+  barriers: [],
   chasePlacement: {
     preferredAreas: [
       { kind: "rectangle", x: 0, z: -330, width: 500, depth: 70 },
@@ -234,5 +260,5 @@ export const METRO_RING_MAP = defineDrivingMap({
       { kind: "circle", x: -35, z: 255, radius: 24 },
     ],
   },
-  spawn: { source: "position", x: 0, z: -330, heading: 0 },
+  spawn: { source: "position", ...SPAWN },
 });

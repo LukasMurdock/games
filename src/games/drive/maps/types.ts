@@ -59,6 +59,28 @@ export type DistrictMarkingDefinition = {
   color?: number;
 };
 
+/** A circular, open paved area for linking drifts and donuts. */
+export type DriftPadDefinition = {
+  x: number;
+  z: number;
+  radius: number;
+  color?: number;
+};
+
+/**
+ * A drivable kicker. It rises along local +z over the first `rise` fraction of its
+ * length, holds a short crest, and drops back down; fast cars leave the crest airborne.
+ * Elevation is presentation-only; the simulation treats the ramp as flat pavement.
+ */
+export type RampDefinition = {
+  x: number;
+  z: number;
+  width: number;
+  length: number;
+  height: number;
+  rotation?: number;
+};
+
 export type GroundPatchDefinition = {
   x: number;
   z: number;
@@ -133,6 +155,8 @@ export type GameMapDefinition = {
   roads: readonly RoadSegmentDefinition[];
   corridors?: readonly RoadCorridorDefinition[];
   parkingLots: readonly ParkingLotDefinition[];
+  pads?: readonly DriftPadDefinition[];
+  ramps?: readonly RampDefinition[];
   groundPatches?: readonly GroundPatchDefinition[];
   buildings: readonly BuildingDefinition[];
   trees: readonly PropDefinition[];

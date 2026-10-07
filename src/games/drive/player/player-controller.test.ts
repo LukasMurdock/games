@@ -9,6 +9,7 @@ function createWorld(overrides: Partial<WorldRuntime> = {}): WorldRuntime {
     spawnPosition: new THREE.Vector3(0, 0.06, 0),
     spawnHeading: 0,
     isOnPavement: () => true,
+    surfaceHeightAt: () => 0,
     queryCollision: () => null,
     findSafePlacement: () => null,
     isOutsideBoundary: () => false,

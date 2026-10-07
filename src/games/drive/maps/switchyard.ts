@@ -1,9 +1,30 @@
 import { defineDrivingMap } from "./authoring";
+import { roadPath } from "./road-shaping";
+
+const LOOP = 96;
+const CORNER = 22;
+const SIDE = LOOP - CORNER;
+
+/**
+ * A perimeter ring around the freight apron. Driven counterclockwise, every chicane
+ * jinks outward, and the north and south sides stay straight where the spurs join.
+ */
+const yardLoop = roadPath({ x: 0, z: -LOOP }, Math.PI / 2)
+  .straight(18).chicane(34, 7).straight(SIDE - 52)
+  .arc(CORNER, -90)
+  .straight(SIDE - 17).chicane(34, 7).straight(SIDE - 17)
+  .arc(CORNER, -90)
+  .straight(SIDE - 52).chicane(34, 7).straight(36).chicane(34, 7).straight(SIDE - 52)
+  .arc(CORNER, -90)
+  .straight(SIDE - 17).chicane(34, 7).straight(SIDE - 17)
+  .arc(CORNER, -90)
+  .straight(SIDE - 52).chicane(34, 7).straight(18)
+  .points();
 
 export const SWITCHYARD_MAP = defineDrivingMap({
   id: "switchyard",
   title: "Switchyard",
-  description: "Freight lanes and staggered transfer gaps.",
+  description: "Freight lanes and transfer gaps inside a chicaned yard loop, with a jump lane.",
   worldLimit: 118,
   groundSize: 280,
   environment: {
@@ -26,7 +47,17 @@ export const SWITCHYARD_MAP = defineDrivingMap({
     { x: 0, z: 0, width: 30, depth: 140, markings: false, surfaceColor: 0x484b45 },
     { x: 50, z: 0, width: 30, depth: 140, markings: false, surfaceColor: 0x404643 },
   ],
-  corridors: [],
+  corridors: [
+    { id: "yard-loop", width: 12, markings: true, points: yardLoop },
+    // Spurs tie the apron's north and south edges to the loop.
+    { id: "north-spur", width: 12, points: [{ x: 0, z: 70 }, { x: 0, z: LOOP }], allowDeadEndStart: true },
+    { id: "south-spur", width: 12, points: [{ x: 0, z: -70 }, { x: 0, z: -LOOP }], allowDeadEndStart: true },
+  ],
+  // A jump line down the central lane, rising north.
+  ramps: [
+    { x: 0, z: -24, width: 7, length: 9, height: 1.2 },
+    { x: 0, z: 18, width: 7, length: 9, height: 1.35 },
+  ],
   parkingLots: [
     { x: -52, z: 24, width: 16, depth: 10 },
     { x: 52, z: -22, width: 16, depth: 10 },
