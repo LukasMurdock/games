@@ -59,6 +59,8 @@ export type IntroDirector = {
   launch(resolveTarget: () => THREE.Camera, onDone: () => void): void;
   /** Ends an in-flight launch immediately, handing control back as if it had landed. */
   completeLaunch(): void;
+  /** Abandons the sequence without a launch, e.g. when a debug camera takes over. */
+  dismiss(): void;
   /** Advances the sequence; returns false once control has returned to gameplay cameras. */
   update(dt: number, focus: Focus): boolean;
   render(): void;
@@ -347,6 +349,18 @@ export function createIntroDirector(options: {
     },
     completeLaunch() {
       finishLaunch();
+    },
+    dismiss() {
+      if (phase === "idle") return;
+      if (launchState) {
+        finishLaunch();
+        return;
+      }
+      finishSequence();
+      releaseComposer();
+      veil.setFlash(0);
+      setFraming(0, 0, ATTRACT_FOV);
+      setPhase("idle");
     },
     update(dt, focus) {
       clock += dt;

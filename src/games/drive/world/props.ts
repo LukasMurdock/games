@@ -2,41 +2,84 @@ import * as THREE from "three";
 import type { SignDefinition } from "../maps/types";
 import type { Obstacle } from "./types";
 
+type InstancedPart = {
+  geometry: THREE.BufferGeometry;
+  color: number;
+  basic?: boolean;
+  /** Local transform of the part relative to the prop origin. */
+  position: [number, number, number];
+  scale?: [number, number, number];
+  rotation?: [number, number, number];
+  /** Per-instance brightness jitter, so repeated props do not read as stamped copies. */
+  tintJitter?: number;
+};
+
+/** Builds one instanced mesh per part and places every part for every prop instance. */
+function addInstancedProp(
+  scene: THREE.Object3D,
+  parts: readonly InstancedPart[],
+  placements: readonly { x: number; z: number; yaw: number; scale: number; seed: number }[],
+) {
+  if (placements.length === 0) return;
+  const matrix = new THREE.Matrix4();
+  const local = new THREE.Matrix4();
+  const placement = new THREE.Matrix4();
+  const quaternion = new THREE.Quaternion();
+  const euler = new THREE.Euler();
+  const tint = new THREE.Color();
+  for (const part of parts) {
+    const mesh = new THREE.InstancedMesh(
+      part.geometry,
+      part.basic
+        ? new THREE.MeshBasicMaterial({ color: part.color })
+        : new THREE.MeshStandardMaterial({ color: part.color, roughness: 1, flatShading: true }),
+      placements.length,
+    );
+    local.compose(
+      new THREE.Vector3(...part.position),
+      quaternion.setFromEuler(euler.set(...(part.rotation ?? [0, 0, 0]))),
+      new THREE.Vector3(...(part.scale ?? [1, 1, 1])),
+    );
+    placements.forEach((entry, index) => {
+      placement.compose(
+        new THREE.Vector3(entry.x, 0, entry.z),
+        quaternion.setFromAxisAngle(UP, entry.yaw),
+        new THREE.Vector3(entry.scale, entry.scale, entry.scale),
+      );
+      mesh.setMatrixAt(index, matrix.multiplyMatrices(placement, local));
+      if (part.tintJitter) {
+        const jitter = 1 + (hash(entry.seed, part.position[1]) - 0.5) * part.tintJitter;
+        mesh.setColorAt(index, tint.setScalar(jitter));
+      }
+    });
+    mesh.instanceMatrix.needsUpdate = true;
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    mesh.computeBoundingSphere();
+    mesh.castShadow = !part.basic;
+    mesh.receiveShadow = !part.basic;
+    scene.add(mesh);
+  }
+}
+
+const UP = new THREE.Vector3(0, 1, 0);
+
+/** Conifers, broad deciduous crowns, and narrow poplars, chosen deterministically per position. */
 export function addTreeBatch(
   scene: THREE.Object3D,
   obstacles: Obstacle[],
   points: readonly { x: number; z: number }[],
 ) {
   if (points.length === 0) return;
-  const trunks = new THREE.InstancedMesh(
-    new THREE.CylinderGeometry(0.34, 0.48, 2.5, 5),
-    new THREE.MeshStandardMaterial({ color: 0x65503a, roughness: 1, flatShading: true }),
-    points.length,
-  );
-  const foliageColors = [0x344d20, 0x486421, 0x5f7625];
-  const layers = [
-    { radius: 2.35, height: 3.5, y: 2.75 },
-    { radius: 1.85, height: 3.25, y: 4.15 },
-    { radius: 1.3, height: 2.8, y: 5.45 },
-  ];
-  const foliage = layers.map((layer, index) => new THREE.InstancedMesh(
-    new THREE.ConeGeometry(layer.radius, layer.height, 5),
-    new THREE.MeshStandardMaterial({ color: foliageColors[index], roughness: 1, flatShading: true }),
-    points.length,
-  ));
-  const matrix = new THREE.Matrix4();
-  const quaternion = new THREE.Quaternion();
-  points.forEach((point, index) => {
-    quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), deterministicRotation(point.x, point.z));
-    matrix.compose(new THREE.Vector3(point.x, 1.25, point.z), quaternion, new THREE.Vector3(1, 1, 1));
-    trunks.setMatrixAt(index, matrix);
-    layers.forEach((layer, layerIndex) => {
-      matrix.compose(
-        new THREE.Vector3(point.x, layer.y, point.z),
-        quaternion,
-        new THREE.Vector3(1, 1, 1),
-      );
-      foliage[layerIndex].setMatrixAt(index, matrix);
+  const species: Array<Array<{ x: number; z: number; yaw: number; scale: number; seed: number }>> = [[], [], []];
+  points.forEach((point) => {
+    const seed = hash(point.x, point.z);
+    const kind = seed < 0.45 ? 0 : seed < 0.82 ? 1 : 2;
+    species[kind].push({
+      x: point.x,
+      z: point.z,
+      yaw: deterministicRotation(point.x, point.z),
+      scale: 0.88 + hash(point.z, point.x) * 0.3,
+      seed: seed * 1000,
     });
     obstacles.push({
       kind: "tree",
@@ -47,12 +90,25 @@ export function addTreeBatch(
       resetsCar: true,
     });
   });
-  [trunks, ...foliage].forEach((mesh) => {
-    mesh.instanceMatrix.needsUpdate = true;
-    mesh.computeBoundingSphere();
-    mesh.castShadow = true;
-    scene.add(mesh);
-  });
+  const trunk = new THREE.CylinderGeometry(0.3, 0.46, 2.5, 5);
+  addInstancedProp(scene, [
+    { geometry: trunk, color: 0x65503a, position: [0, 1.25, 0] },
+    { geometry: new THREE.ConeGeometry(2.35, 3.5, 6), color: 0x344d20, position: [0, 2.75, 0], tintJitter: 0.25 },
+    { geometry: new THREE.ConeGeometry(1.85, 3.25, 6), color: 0x486421, position: [0, 4.15, 0], tintJitter: 0.25 },
+    { geometry: new THREE.ConeGeometry(1.3, 2.8, 6), color: 0x5f7625, position: [0, 5.45, 0], tintJitter: 0.25 },
+  ], species[0]);
+  const crown = new THREE.IcosahedronGeometry(1, 0);
+  addInstancedProp(scene, [
+    { geometry: trunk, color: 0x6b5440, position: [0, 1.4, 0], scale: [0.85, 1.15, 0.85] },
+    { geometry: crown, color: 0x55752a, position: [0, 4.1, 0], scale: [2.3, 1.9, 2.3], tintJitter: 0.3 },
+    { geometry: crown, color: 0x678a31, position: [0.95, 4.9, 0.4], scale: [1.5, 1.3, 1.5], tintJitter: 0.3 },
+    { geometry: crown, color: 0x4b6a25, position: [-0.8, 4.6, -0.6], scale: [1.6, 1.4, 1.6], tintJitter: 0.3 },
+  ], species[1]);
+  addInstancedProp(scene, [
+    { geometry: trunk, color: 0x5d4a37, position: [0, 0.9, 0], scale: [0.7, 0.75, 0.7] },
+    { geometry: crown, color: 0x4f6e26, position: [0, 4.4, 0], scale: [1.15, 3.6, 1.15], tintJitter: 0.25 },
+    { geometry: crown, color: 0x5f7f2c, position: [0, 6.4, 0], scale: [0.8, 1.9, 0.8], tintJitter: 0.25 },
+  ], species[2]);
 }
 
 export function addStreetlightBatch(
@@ -61,40 +117,29 @@ export function addStreetlightBatch(
   points: readonly { x: number; z: number }[],
 ) {
   if (points.length === 0) return;
-  const metal = new THREE.MeshStandardMaterial({ color: 0x343832, roughness: 1, flatShading: true });
-  const definitions = [
-    { geometry: new THREE.BoxGeometry(0.7, 0.28, 0.7), material: metal, x: 0, y: 0.14 },
-    { geometry: new THREE.CylinderGeometry(0.11, 0.16, 5.2, 5), material: metal, x: 0, y: 2.7 },
-    { geometry: new THREE.BoxGeometry(1.35, 0.16, 0.16), material: metal, x: 0.58, y: 5.23 },
+  const placements = points.map((point) => ({
+    x: point.x,
+    z: point.z,
+    yaw: ((Math.abs(point.x * 7 + point.z * 11) % 4) * Math.PI) / 2,
+    scale: 1,
+    seed: 0,
+  }));
+  const armRise = Math.atan2(0.35, 0.7);
+  addInstancedProp(scene, [
+    { geometry: new THREE.CylinderGeometry(0.34, 0.4, 0.42, 8), color: 0x52554e, position: [0, 0.21, 0] },
+    { geometry: new THREE.CylinderGeometry(0.08, 0.14, 5.1, 6), color: 0x343832, position: [0, 2.9, 0] },
+    // Rising bracket, then a horizontal arm out to the lamp head.
     {
-      geometry: new THREE.BoxGeometry(0.62, 0.18, 0.42),
-      material: new THREE.MeshBasicMaterial({ color: 0xf2d77f }),
-      x: 1.16,
-      y: 5.1,
+      geometry: new THREE.BoxGeometry(0.78, 0.1, 0.1),
+      color: 0x343832,
+      position: [0.33, 5.45, 0],
+      rotation: [0, 0, armRise],
     },
-  ];
-  const meshes = definitions.map((definition) => new THREE.InstancedMesh(
-    definition.geometry,
-    definition.material,
-    points.length,
-  ));
-  const matrix = new THREE.Matrix4();
-  const quaternion = new THREE.Quaternion();
-  points.forEach((point, index) => {
-    const heading = ((Math.abs(point.x * 7 + point.z * 11) % 4) * Math.PI) / 2;
-    quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), heading);
-    definitions.forEach((definition, partIndex) => {
-      matrix.compose(
-        new THREE.Vector3(
-          point.x + Math.cos(heading) * definition.x,
-          definition.y,
-          point.z - Math.sin(heading) * definition.x,
-        ),
-        quaternion,
-        new THREE.Vector3(1, 1, 1),
-      );
-      meshes[partIndex].setMatrixAt(index, matrix);
-    });
+    { geometry: new THREE.BoxGeometry(0.95, 0.1, 0.1), color: 0x343832, position: [1.12, 5.62, 0] },
+    { geometry: new THREE.BoxGeometry(0.78, 0.2, 0.42), color: 0x2c2f2b, position: [1.5, 5.55, 0] },
+    { geometry: new THREE.BoxGeometry(0.6, 0.04, 0.32), color: 0xfbe39a, basic: true, position: [1.5, 5.43, 0] },
+  ], placements);
+  points.forEach((point) => {
     obstacles.push({
       kind: "streetlight",
       minX: point.x - 0.32,
@@ -103,12 +148,6 @@ export function addStreetlightBatch(
       maxZ: point.z + 0.32,
       resetsCar: true,
     });
-  });
-  meshes.forEach((mesh) => {
-    mesh.instanceMatrix.needsUpdate = true;
-    mesh.computeBoundingSphere();
-    mesh.castShadow = true;
-    scene.add(mesh);
   });
 }
 
@@ -290,4 +329,9 @@ export function addBarrierBatch(
 
 function deterministicRotation(x: number, z: number) {
   return Math.abs(Math.sin(x * 12.9898 + z * 78.233)) * Math.PI * 2;
+}
+
+function hash(x: number, z: number) {
+  const value = Math.sin(x * 127.1 + z * 311.7) * 43758.5453;
+  return value - Math.floor(value);
 }

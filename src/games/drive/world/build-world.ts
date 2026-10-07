@@ -2,7 +2,7 @@ import * as THREE from "three";
 import type { GameMapDefinition } from "../maps";
 import type { CircuitPhrase, PlacementArea } from "../maps/types";
 import { addBoundaryFence } from "./boundary-fence";
-import { addBuilding } from "./buildings";
+import { addBuilding, type BuildingFrontSide } from "./buildings";
 import { createWorldDebugLayers } from "./debug-geometry";
 import { circlePavement, containsPavement, corridorPavement, parkingPavement, roadPavement } from "./pavement";
 import { addBarrierBatch, addSignBatch, addStreetlightBatch, addTreeBatch } from "./props";
@@ -206,6 +206,22 @@ export function buildWorld(
     `district-markings:${color.toString(16)}`,
   ));
 
+  const pavementPrimitives = [
+    ...roadSegments.map(roadPavement),
+    ...corridors.flatMap(corridorPavement),
+    ...corridorJunctions.map((junction) => circlePavement(junction.x, junction.z, junction.radius)),
+    ...map.parkingLots.map(parkingPavement),
+    ...(course?.points.map((point, index) => circlePavement(
+      point.x,
+      point.z,
+      course.widths[index] / 2,
+    )) ?? []),
+  ];
+  const pavementGrid = new SpatialGrid(pavementPrimitives);
+  const pavedAt = (x: number, z: number) => pavementGrid
+    .query(x, x, z, z)
+    .some((primitive) => containsPavement(primitive, x, z));
+
   map.buildings.forEach((building) => addBuilding(
     worldRoot,
     obstacles,
@@ -217,6 +233,7 @@ export function buildWorld(
     building.color,
     building.style,
     building.rotation,
+    streetFacingSide(building, pavedAt),
   ));
   forEachSpatialChunk(map.trees, (points) => addTreeBatch(worldRoot, obstacles, points));
   forEachSpatialChunk(map.streetlights, (points) => addStreetlightBatch(worldRoot, obstacles, points));
@@ -238,19 +255,7 @@ export function buildWorld(
   }
   spawnPosition.y = 0.06;
 
-  const pavementPrimitives = [
-    ...roadSegments.map(roadPavement),
-    ...corridors.flatMap(corridorPavement),
-    ...corridorJunctions.map((junction) => circlePavement(junction.x, junction.z, junction.radius)),
-    ...map.parkingLots.map(parkingPavement),
-    ...(course?.points.map((point, index) => circlePavement(
-      point.x,
-      point.z,
-      course.widths[index] / 2,
-    )) ?? []),
-  ];
   const obstacleGrid = new SpatialGrid(obstacles);
-  const pavementGrid = new SpatialGrid(pavementPrimitives);
   const occupiedCells = new Map<string, { x: number; z: number }>();
   for (const cell of [...obstacleGrid.getOccupiedCells(), ...pavementGrid.getOccupiedCells()]) {
     occupiedCells.set(`${cell.x}:${cell.z}`, cell);
@@ -352,6 +357,30 @@ export function buildWorld(
       pavementPrimitives.length = 0;
     },
   };
+}
+
+/** The building side whose frontage is nearest to pavement; storefronts and entrances go there. */
+function streetFacingSide(
+  building: GameMapDefinition["buildings"][number],
+  pavedAt: (x: number, z: number) => boolean,
+): BuildingFrontSide {
+  const rotation = building.rotation ?? 0;
+  const sides: Array<{ side: BuildingFrontSide; localX: number; localZ: number; halfSpan: number }> = [
+    { side: 0, localX: 0, localZ: 1, halfSpan: building.depth / 2 },
+    { side: 1, localX: 1, localZ: 0, halfSpan: building.width / 2 },
+    { side: 2, localX: 0, localZ: -1, halfSpan: building.depth / 2 },
+    { side: 3, localX: -1, localZ: 0, halfSpan: building.width / 2 },
+  ];
+  for (const reach of [2.5, 5, 9, 14, 20]) {
+    for (const { side, localX, localZ, halfSpan } of sides) {
+      // Object3D yaw maps local +x to (cos, -sin) and local +z to (sin, cos) in world XZ.
+      const dx = localX * Math.cos(rotation) + localZ * Math.sin(rotation);
+      const dz = -localX * Math.sin(rotation) + localZ * Math.cos(rotation);
+      const distance = halfSpan + reach;
+      if (pavedAt(building.x + dx * distance, building.z + dz * distance)) return side;
+    }
+  }
+  return 0;
 }
 
 function isOutsideMapBoundary(map: GameMapDefinition, position: THREE.Vector3, radius: number) {

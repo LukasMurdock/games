@@ -562,6 +562,7 @@ export function startDrivingGame(root: HTMLElement, options: DrivingGameOptions 
   function inspectDistrict(direction: number) {
     if (!showMapDiagnostics || (map.compiledDistricts?.length ?? 0) === 0) return;
     const districts = map.compiledDistricts ?? [];
+    introDirector?.dismiss();
     inspectedDistrictIndex = (inspectedDistrictIndex + direction + districts.length) % districts.length;
     const district = districts[inspectedDistrictIndex];
     const entrance = district.entrances[0];
