@@ -513,17 +513,32 @@ export function createDrivingVehicleSimulation(
   }
 
   function snapshot(): DrivingVehicleSnapshot {
-    return {
-      position: { ...position },
-      velocity: { ...velocity },
-      heading,
-      speed: length(velocity),
-      visualSlip,
-      driftPhase,
-      boosting: exitBoost > 0,
-      cameraShake,
-      exitPulse,
-    };
+    return readSnapshot({
+      position: { x: 0, z: 0 },
+      velocity: { x: 0, z: 0 },
+      heading: 0,
+      speed: 0,
+      visualSlip: 0,
+      driftPhase: "grip",
+      boosting: false,
+      cameraShake: 0,
+      exitPulse: 0,
+    });
+  }
+
+  function readSnapshot(target: DrivingVehicleSnapshot): DrivingVehicleSnapshot {
+    target.position.x = position.x;
+    target.position.z = position.z;
+    target.velocity.x = velocity.x;
+    target.velocity.z = velocity.z;
+    target.heading = heading;
+    target.speed = length(velocity);
+    target.visualSlip = visualSlip;
+    target.driftPhase = driftPhase;
+    target.boosting = exitBoost > 0;
+    target.cameraShake = cameraShake;
+    target.exitPulse = exitPulse;
+    return target;
   }
 
   reset();
@@ -549,6 +564,7 @@ export function createDrivingVehicleSimulation(
       heading = nextHeading;
     },
     snapshot,
+    readSnapshot,
     decayCameraShake(dt) { cameraShake *= Math.exp(-9 * dt); },
   };
 }

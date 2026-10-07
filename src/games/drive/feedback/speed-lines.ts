@@ -44,6 +44,13 @@ export function createSpeedLines(canvas: HTMLCanvasElement): SpeedLines {
   let time = 0;
   let patternAccumulator = 0;
   let patternRevision = 0;
+  // The overlay is usually empty; avoid re-clearing (and re-compositing) a blank canvas every frame.
+  let blank = true;
+  const clear = () => {
+    if (blank || !context) return;
+    context.clearRect(0, 0, width, height);
+    blank = true;
+  };
   let randomState = 0x8d31a47f;
   const random = () => {
     randomState = (1664525 * randomState + 1013904223) >>> 0;
@@ -63,14 +70,18 @@ export function createSpeedLines(canvas: HTMLCanvasElement): SpeedLines {
       width = Math.max(1, Math.round(nextWidth));
       height = Math.max(1, Math.round(nextHeight));
       // Deliberately render at CSS-pixel resolution: the graphic effect stays cheap and slightly crisp/pixel-like.
-      if (canvas.width !== width) canvas.width = width;
-      if (canvas.height !== height) canvas.height = height;
+      // Assigning a canvas dimension also clears it.
+      if (canvas.width !== width || canvas.height !== height) {
+        canvas.width = width;
+        canvas.height = height;
+        blank = true;
+      }
     },
     update(frame) {
       if (!context) return;
       if (!frame.enabled || reducedMotion.matches) {
         intensity = 0;
-        context.clearRect(0, 0, width, height);
+        clear();
         return;
       }
       const target = Math.max(0, Math.min(1, frame.intensity));
@@ -83,8 +94,9 @@ export function createSpeedLines(canvas: HTMLCanvasElement): SpeedLines {
         patternRevision += revisions;
         patternAccumulator -= revisions * PATTERN_INTERVAL;
       }
-      context.clearRect(0, 0, width, height);
+      clear();
       if (intensity < 0.005) return;
+      blank = false;
 
       const minimumDimension = Math.min(width, height);
       const clearRadius = minimumDimension * 0.18;

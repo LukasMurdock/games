@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { batchStaticMeshes } from "../world/static-batching";
 
 function createTaperedBoxGeometry(
   bottomHalfWidth: number,
@@ -33,10 +34,15 @@ function createTaperedBoxGeometry(
 export type CarAppearance = {
   paintColor?: number;
   police?: boolean;
+  /** Merge rigid body parts into a few draws. Disable when callers need individual part meshes. */
+  mergeStaticParts?: boolean;
 };
 
 export function createCar(appearance: CarAppearance = {}) {
   const group = new THREE.Group();
+  // Rigid parts live under `body` so they can be merged; wheels and lights stay separate because they animate.
+  const body = new THREE.Group();
+  group.add(body);
   const paint = new THREE.MeshStandardMaterial({
     color: appearance.paintColor ?? (appearance.police ? 0x18252d : 0xd94432),
     roughness: 0.82,
@@ -47,39 +53,39 @@ export function createCar(appearance: CarAppearance = {}) {
   const rim = new THREE.MeshStandardMaterial({ color: 0xaaa58f, roughness: 0.9, flatShading: true });
   const glass = new THREE.MeshStandardMaterial({ color: 0x263b3c, roughness: 0.72, flatShading: true });
 
-  const body = new THREE.Mesh(
+  const shell = new THREE.Mesh(
     createTaperedBoxGeometry(1.08, 1.02, -2.05, 2.05, -1.95, 1.88, 0.68),
     paint,
   );
-  body.position.y = 0.24;
-  group.add(body);
+  shell.position.y = 0.24;
+  body.add(shell);
 
   const hood = new THREE.Mesh(new THREE.BoxGeometry(1.92, 0.16, 1.2), paint);
   hood.position.set(0, 0.98, 1.28);
-  group.add(hood);
+  body.add(hood);
   const trunk = new THREE.Mesh(new THREE.BoxGeometry(1.96, 0.14, 0.72), paint);
   trunk.position.set(0, 0.94, -1.62);
-  group.add(trunk);
+  body.add(trunk);
 
   const cabin = new THREE.Mesh(
     createTaperedBoxGeometry(0.88, 0.69, -1.02, 0.65, -0.72, 0.34, 0.62),
     glass,
   );
   cabin.position.y = 0.97;
-  group.add(cabin);
+  body.add(cabin);
   const roof = new THREE.Mesh(new THREE.BoxGeometry(1.38, 0.14, 1.02), paint);
   roof.position.set(0, 1.62, -0.2);
-  group.add(roof);
+  body.add(roof);
 
   for (const z of [-2.07, 2.07]) {
     const bumper = new THREE.Mesh(new THREE.BoxGeometry(1.92, 0.18, 0.16), dark);
     bumper.position.set(0, 0.48, z);
-    group.add(bumper);
+    body.add(bumper);
   }
   for (const x of [-1.09, 1.09]) {
     const sill = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.18, 2.65), dark);
     sill.position.set(x, 0.43, 0);
-    group.add(sill);
+    body.add(sill);
   }
 
   const wheels: THREE.Mesh[] = [];
@@ -119,7 +125,7 @@ export function createCar(appearance: CarAppearance = {}) {
   for (const x of [-0.7, 0.7]) {
     const light = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.22, 0.08), headlights);
     light.position.set(x, 0.72, 2.16);
-    group.add(light);
+    body.add(light);
   }
 
   const rearPlate = new THREE.Mesh(
@@ -128,7 +134,7 @@ export function createCar(appearance: CarAppearance = {}) {
   );
   rearPlate.position.set(0, 0.52, -2.165);
   rearPlate.rotation.y = Math.PI;
-  group.add(rearPlate);
+  body.add(rearPlate);
 
   const emergencyLights: THREE.Mesh[] = [];
   if (appearance.police) {
@@ -137,12 +143,12 @@ export function createCar(appearance: CarAppearance = {}) {
       const doorPanel = new THREE.Mesh(new THREE.PlaneGeometry(1.15, 0.46), panelMaterial);
       doorPanel.position.set(x, 0.7, -0.12);
       doorPanel.rotation.y = x > 0 ? Math.PI / 2 : -Math.PI / 2;
-      group.add(doorPanel);
+      body.add(doorPanel);
     }
 
     const lightBar = new THREE.Mesh(new THREE.BoxGeometry(1.22, 0.1, 0.24), dark);
     lightBar.position.set(0, 1.82, -0.2);
-    group.add(lightBar);
+    body.add(lightBar);
     [
       { x: -0.32, color: 0xe83b2f },
       { x: 0.32, color: 0x3287e8 },
@@ -163,6 +169,7 @@ export function createCar(appearance: CarAppearance = {}) {
   group.traverse((object) => {
     if (object instanceof THREE.Mesh) object.castShadow = true;
   });
+  if (appearance.mergeStaticParts ?? true) batchStaticMeshes(body, Number.POSITIVE_INFINITY);
   return { group, wheels, frontWheels, brakeLights, emergencyLights };
 }
 

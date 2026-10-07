@@ -32,6 +32,8 @@ export type WorldDiagnostics = {
   pavementPrimitives: number;
   junctions: number;
   accessRoads: number;
+  staticBatches: number;
+  batchedSources: number;
   collisionQueries: number;
   collisionCandidates: number;
   pavementQueries: number;

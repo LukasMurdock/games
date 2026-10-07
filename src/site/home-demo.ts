@@ -583,7 +583,7 @@ function createDriftLab(scene: THREE.Scene): DriftLab {
 }
 
 function makeDemoCar(police: boolean, color: number) {
-  const car = createCar({ police, paintColor: color });
+  const car = createCar({ police, paintColor: color, mergeStaticParts: false });
   const surfaceMaterial = new THREE.MeshPhysicalMaterial({
     color,
     emissive: new THREE.Color(color).multiplyScalar(police ? 0.05 : 0.14),

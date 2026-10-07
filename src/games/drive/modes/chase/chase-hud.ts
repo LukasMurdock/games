@@ -32,6 +32,29 @@ export function createChaseHud(root: HTMLElement): ChaseHud {
 
   let currentLabel = "";
   let currentMessage = "";
+  let currentTimer = "";
+  let currentMeter = "";
+
+  // The HUD updates every frame; only touch the DOM when a visible value actually changes.
+  function setTimer(seconds: number) {
+    const nextTimer = formatTime(seconds);
+    if (nextTimer === currentTimer) return;
+    currentTimer = nextTimer;
+    timer.textContent = nextTimer;
+  }
+
+  function setMeter(pressure: number) {
+    const nextMeter = `scaleX(${pressure.toFixed(2)})`;
+    if (nextMeter === currentMeter) return;
+    currentMeter = nextMeter;
+    meterFill.style.transform = nextMeter;
+  }
+
+  function setState(hidden: boolean, state: string, pressure?: string) {
+    if (hud.hidden !== hidden) hud.hidden = hidden;
+    if (hud.dataset.state !== state) hud.dataset.state = state;
+    if (pressure !== undefined && hud.dataset.pressure !== pressure) hud.dataset.pressure = pressure;
+  }
 
   function setLabel(nextLabel: string) {
     if (nextLabel === currentLabel) return;
@@ -47,27 +70,21 @@ export function createChaseHud(root: HTMLElement): ChaseHud {
 
   return {
     showWaiting() {
-      hud.hidden = true;
-      hud.dataset.state = "waiting";
+      setState(true, "waiting");
     },
     showActive({ survivalTime, nearestDistance, reinforcements }) {
-      hud.hidden = false;
-      hud.dataset.state = "active";
+      setState(false, "active", getPressureLevel(nearestDistance));
       setLabel("Pursuit");
-      timer.textContent = formatTime(survivalTime);
-      const pressure = 1 - THREE.MathUtils.smoothstep(nearestDistance, 7, 45);
-      meterFill.style.transform = `scaleX(${pressure.toFixed(3)})`;
+      setTimer(survivalTime);
+      setMeter(1 - THREE.MathUtils.smoothstep(nearestDistance, 7, 45));
       setMessage(getPursuitMessage(reinforcements, nearestDistance));
-      hud.dataset.pressure = getPressureLevel(nearestDistance);
     },
     showCaptured(survivalTime) {
-      hud.hidden = false;
-      hud.dataset.state = "captured";
-      hud.dataset.pressure = "danger";
+      setState(false, "captured", "danger");
       setLabel("Pursuit ended");
-      timer.textContent = formatTime(survivalTime);
+      setTimer(survivalTime);
       setMessage("Caught");
-      meterFill.style.transform = "scaleX(1)";
+      setMeter(1);
     },
     destroy() {
       hud.remove();

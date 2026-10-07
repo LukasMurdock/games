@@ -1,7 +1,9 @@
 import * as THREE from "three";
+import { preloadCarAudioWorklets } from "./audio/car-audio";
 import { createDrivingAudioMixer } from "./audio/driving-audio-mixer";
 import { SOUNDTRACKS, type SoundtrackId } from "./audio/soundtrack-registry";
 import { DRIVING_PROFILES } from "./driving-profiles";
+import { AdaptiveResolution } from "./core/adaptive-resolution";
 import { createLeaderboardToast } from "./feedback/leaderboard-toast";
 import { createSpeedLines } from "./feedback/speed-lines";
 import { addLocalDriveResult, getLocalDriveLeaderboard } from "./local-leaderboard";
@@ -19,6 +21,8 @@ const CONTROL_MODE_KEY = "driving-game:control-mode:v1";
 const MUSIC_VOLUME_KEY = "driving-game:music-volume:v1";
 const MUSIC_MUTED_KEY = "driving-game:music-muted:v1";
 const VEHICLE_VOLUME_KEY = "driving-game:vehicle-volume:v1";
+const PIXEL_BUDGET = 2_200_000;
+const MINIMUM_RESOLUTION_SCALE = 0.6;
 const MANUAL_CONTROL_CODE = [
   "ArrowUp",
   "ArrowUp",
@@ -149,6 +153,38 @@ export function startDrivingGame(root: HTMLElement, options: DrivingGameOptions 
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.12;
 
+  // While nothing simulates (intro, pause, district inspection) the scene only changes when the
+  // camera settles or an input/UI event fires, so idle frames skip the full scene and shadow render.
+  let renderRequested = true;
+  const lastRenderedCamera = new Float32Array(32);
+  let lastRenderedCameraObject: THREE.Camera | null = null;
+  function requestRender() {
+    renderRequested = true;
+  }
+  function cameraChangedSinceRender(camera: THREE.Camera) {
+    if (camera !== lastRenderedCameraObject) return true;
+    const world = camera.matrixWorld.elements;
+    const projection = camera.projectionMatrix.elements;
+    for (let index = 0; index < 16; index++) {
+      if (Math.abs(world[index] - lastRenderedCamera[index]) > 2e-4) return true;
+      if (Math.abs(projection[index] - lastRenderedCamera[16 + index]) > 1e-5) return true;
+    }
+    return false;
+  }
+  function rememberRenderedCamera(camera: THREE.Camera) {
+    lastRenderedCameraObject = camera;
+    lastRenderedCamera.set(camera.matrixWorld.elements, 0);
+    lastRenderedCamera.set(camera.projectionMatrix.elements, 16);
+  }
+  // Any input or control change may alter what the idle scene shows.
+  for (const eventName of ["keydown", "keyup", "pointerdown", "pointerup"]) {
+    window.addEventListener(eventName, requestRender, { ...listenerOptions, capture: true });
+  }
+  for (const eventName of ["click", "input", "change"]) {
+    root.addEventListener(eventName, requestRender, { ...listenerOptions, capture: true });
+  }
+  canvas.addEventListener("webglcontextrestored", requestRender, listenerOptions);
+
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(map.environment.background);
   scene.fog = new THREE.Fog(map.environment.background, map.environment.fogNear, map.environment.fogFar);
@@ -163,7 +199,9 @@ export function startDrivingGame(root: HTMLElement, options: DrivingGameOptions 
   const sun = new THREE.DirectionalLight(0xffe6ad, 3.35);
   sun.position.set(-52, 64, -38);
   sun.castShadow = true;
-  sun.shadow.mapSize.set(2048, 2048);
+  // Phones and tablets are usually fill-rate bound; the player-centered frustum keeps 1024 texels sharp enough.
+  const shadowMapSize = window.matchMedia("(pointer: coarse)").matches ? 1024 : 2048;
+  sun.shadow.mapSize.set(shadowMapSize, shadowMapSize);
   const initialShadowExtent = Math.min(map.environment.shadowExtent, 48);
   sun.shadow.camera.left = -initialShadowExtent;
   sun.shadow.camera.right = initialShadowExtent;
@@ -213,6 +251,8 @@ export function startDrivingGame(root: HTMLElement, options: DrivingGameOptions 
   const speedLines = createSpeedLines(speedLinesCanvas);
   const leaderboardToast = createLeaderboardToast(leaderboardNode);
   const gameAudio = createDrivingAudioMixer();
+  // Compile the engine and tire processors now so pressing start does not stall on it.
+  if (gameAudio) void preloadCarAudioWorklets(gameAudio.context).catch(() => undefined);
   let displayedSoundtrack: SoundtrackId | null = null;
   function updateSoundtrackPresentation() {
     const trackId = gameAudio?.getCurrentTrack() ?? "night-signal";
@@ -271,6 +311,7 @@ export function startDrivingGame(root: HTMLElement, options: DrivingGameOptions 
   }
 
   function endDrive(reason: DriveEndReason = "manual") {
+    requestRender();
     recordDrive(reason);
     gameAudio?.cue(reason === "mode" && mode.id === "chase" ? "capture" : "reset");
     driveTime = 0;
@@ -381,6 +422,8 @@ export function startDrivingGame(root: HTMLElement, options: DrivingGameOptions 
       modeController.pause(true);
     }
     updateModePresentation();
+    void prewarmShaders();
+    requestRender();
 
     const url = new URL(window.location.href);
     if (modeId === "cruise") url.searchParams.delete("mode");
@@ -420,6 +463,8 @@ export function startDrivingGame(root: HTMLElement, options: DrivingGameOptions 
     }
     updateMapPresentation();
     resetCameraTracking();
+    void prewarmShaders();
+    requestRender();
 
     const url = new URL(window.location.href);
     if (mapId === DEFAULT_GAME_MAP_ID) url.searchParams.delete("map");
@@ -700,9 +745,16 @@ export function startDrivingGame(root: HTMLElement, options: DrivingGameOptions 
   const isometricFocus = initialPlayerState.position.clone();
   const isometricOffset = new THREE.Vector3(26, 48, 26);
   const cameraPosition = new THREE.Vector3();
+  const sideCameraOffset = new THREE.Vector3(30, 15, 0);
+  // Per-frame camera math reuses these to avoid churning the garbage collector.
+  const cameraForward = new THREE.Vector3();
+  const velocityDirection = new THREE.Vector3();
+  const lookGoal = new THREE.Vector3();
+  const cameraGoal = new THREE.Vector3();
+  const districtFocus = new THREE.Vector3();
   function resetCameraTracking() {
     const playerState = player.getSnapshot();
-    lookTarget.copy(playerState.position).add(new THREE.Vector3(0, 1, 0));
+    lookTarget.copy(playerState.position).add(UP);
     isometricFocus.copy(playerState.position);
     cameraPosition.copy(playerState.position);
     updateCamera(1);
@@ -712,14 +764,15 @@ export function startDrivingGame(root: HTMLElement, options: DrivingGameOptions 
     const playerState = player.getSnapshot();
     const { position, velocity, heading, visualSlip, exitPulse, cameraShake } = playerState;
     const follow = 1 - Math.exp(-6 * dt);
-    const forward = new THREE.Vector3(Math.sin(heading), 0, Math.cos(heading));
     const speed = playerState.speed;
-    const velocityDirection = speed > 0.5 ? velocity.clone().normalize() : forward.clone();
+    cameraForward.set(Math.sin(heading), 0, Math.cos(heading));
+    if (speed > 0.5) velocityDirection.copy(velocity).normalize();
+    else velocityDirection.copy(cameraForward);
     const slipBlend = THREE.MathUtils.clamp(Math.abs(visualSlip) / THREE.MathUtils.degToRad(30), 0, 1) * 0.35;
-    const cameraForward = forward.clone().lerp(velocityDirection, slipBlend).normalize();
+    cameraForward.lerp(velocityDirection, slipBlend).normalize();
     const speedRatio = THREE.MathUtils.clamp(speed / DRIVING.maximumSpeed, 0, 1);
-    const speedLead = velocity.clone().multiplyScalar(0.045);
-    lookTarget.lerp(position.clone().add(speedLead).add(new THREE.Vector3(0, 1, 0)), follow);
+    lookGoal.copy(position).addScaledVector(velocity, 0.045).add(UP);
+    lookTarget.lerp(lookGoal, follow);
 
     const targetFov = 60 + speedRatio * 4 + slipBlend * 2 + exitPulse * 3;
     const nextFov = THREE.MathUtils.lerp(perspectiveCamera.fov, targetFov, 1 - Math.exp(-4 * dt));
@@ -731,11 +784,9 @@ export function startDrivingGame(root: HTMLElement, options: DrivingGameOptions 
     if (cameraMode === "Chase") {
       const cameraDistance = 5 + speedRatio * 0.5 + exitPulse * 0.2;
       const cameraHeight = 2 + speedRatio * 0.15;
-      const targetPosition = position
-        .clone()
-        .addScaledVector(cameraForward, -cameraDistance)
-        .add(new THREE.Vector3(0, cameraHeight, 0));
-      cameraPosition.lerp(targetPosition, 1 - Math.exp(-4.5 * dt));
+      cameraGoal.copy(position).addScaledVector(cameraForward, -cameraDistance);
+      cameraGoal.y += cameraHeight;
+      cameraPosition.lerp(cameraGoal, 1 - Math.exp(-4.5 * dt));
       perspectiveCamera.position.copy(cameraPosition);
       if (cameraShake > 0.001) {
         perspectiveCamera.position.x += (Math.random() - 0.5) * cameraShake;
@@ -746,7 +797,7 @@ export function startDrivingGame(root: HTMLElement, options: DrivingGameOptions 
       // Keep a stable world-space projection so buildings read as a diorama and steering never rotates the board.
       const inspectedDistrict = map.compiledDistricts?.[inspectedDistrictIndex];
       const focus = inspectedDistrict
-        ? new THREE.Vector3(
+        ? districtFocus.set(
             (inspectedDistrict.bounds.minX + inspectedDistrict.bounds.maxX) / 2,
             0,
             (inspectedDistrict.bounds.minZ + inspectedDistrict.bounds.maxZ) / 2,
@@ -757,8 +808,8 @@ export function startDrivingGame(root: HTMLElement, options: DrivingGameOptions 
       isometricCamera.up.copy(UP);
       isometricCamera.lookAt(isometricFocus);
     } else {
-      const targetPosition = position.clone().add(new THREE.Vector3(30, 15, 0));
-      sideCamera.position.lerp(targetPosition, follow);
+      cameraGoal.copy(position).add(sideCameraOffset);
+      sideCamera.position.lerp(cameraGoal, follow);
       sideCamera.up.copy(UP);
       sideCamera.lookAt(lookTarget);
     }
@@ -772,6 +823,9 @@ export function startDrivingGame(root: HTMLElement, options: DrivingGameOptions 
   }
 
   const speedLineFocus = new THREE.Vector3();
+  // Cached by resize(): reading layout here every frame would force a synchronous reflow after HUD writes.
+  let viewportWidth = Math.max(root.clientWidth, 1);
+  let viewportHeight = Math.max(root.clientHeight, 1);
   function updateSpeedLines(dt: number) {
     const playerState = player.getSnapshot();
     const camera = activeCamera();
@@ -789,29 +843,36 @@ export function startDrivingGame(root: HTMLElement, options: DrivingGameOptions 
       dt,
       enabled: cameraMode === "Chase",
       intensity: redlineIntensity,
-      focusX: (speedLineFocus.x * 0.5 + 0.5) * root.clientWidth,
-      focusY: (-speedLineFocus.y * 0.5 + 0.5) * root.clientHeight,
+      focusX: (speedLineFocus.x * 0.5 + 0.5) * viewportWidth,
+      focusY: (-speedLineFocus.y * 0.5 + 0.5) * viewportHeight,
       boosting: playerState.boosting,
     });
+  }
+
+  const adaptiveResolution = new AdaptiveResolution({ minimumScale: MINIMUM_RESOLUTION_SCALE });
+  function applyPixelRatio() {
+    const pixelBudgetRatio = Math.sqrt(PIXEL_BUDGET / (viewportWidth * viewportHeight));
+    const basePixelRatio = THREE.MathUtils.clamp(Math.min(window.devicePixelRatio, pixelBudgetRatio), 1, 2);
+    const pixelRatio = basePixelRatio * adaptiveResolution.scale;
+    if (Math.abs(renderer.getPixelRatio() - pixelRatio) < 0.001) return;
+    renderer.setPixelRatio(pixelRatio);
   }
 
   let lastOrientation: "portrait" | "landscape" | null = null;
   let resizeFrame = 0;
   function resize() {
+    requestRender();
     const width = Math.max(root.clientWidth, 1);
     const height = Math.max(root.clientHeight, 1);
+    viewportWidth = width;
+    viewportHeight = height;
     const orientation = width >= height ? "landscape" : "portrait";
     const orientationChanged = lastOrientation !== null && orientation !== lastOrientation;
     lastOrientation = orientation;
     root.dataset.orientation = orientation;
     root.dataset.layout = width <= 720 || height <= 520 ? "compact" : "wide";
 
-    const pixelBudgetRatio = Math.sqrt(2_200_000 / (width * height));
-    renderer.setPixelRatio(THREE.MathUtils.clamp(
-      Math.min(window.devicePixelRatio, pixelBudgetRatio),
-      1,
-      2,
-    ));
+    applyPixelRatio();
     renderer.setSize(width, height, false);
     speedLines.resize(width, height);
     perspectiveCamera.aspect = width / height;
@@ -890,18 +951,34 @@ export function startDrivingGame(root: HTMLElement, options: DrivingGameOptions 
       `district  ${districtSummary}`,
       `collision ${collisionAverage.toFixed(1)} candidates/query`,
       `surface   ${pavementAverage.toFixed(1)} candidates/query`,
+      `batches   ${diagnostics.staticBatches} from ${diagnostics.batchedSources} static parts`,
       `GPU geom  ${renderer.info.memory.geometries}`,
       "layers    1 pavement · 2 colliders · 3 grid · 4 source · 5 districts",
     ].join("\n");
   }
 
+  // Compile every visible material up front (in parallel where supported) so the first drift,
+  // camera switch, or pursuer spawn never stalls on a shader link mid-drive.
+  function prewarmShaders() {
+    return renderer.compileAsync(scene, perspectiveCamera).then(requestRender, () => undefined);
+  }
+  void prewarmShaders();
+
   let lastTime = performance.now();
+  let lastFrameWork = 0;
   function frame(now: number) {
     if (destroyed) return;
+    const workStarted = performance.now();
     const wallElapsed = Math.min((now - lastTime) / 1000, 1);
     const elapsed = Math.min(wallElapsed, 0.05);
     lastTime = now;
-    if (running && !paused && inspectedDistrictIndex < 0) {
+    const simulating = running && !paused && inspectedDistrictIndex < 0;
+    if (!simulating || document.hidden) adaptiveResolution.interrupt();
+    else if (adaptiveResolution.sample(now, wallElapsed * 1000, lastFrameWork)) {
+      applyPixelRatio();
+      renderer.setSize(viewportWidth, viewportHeight, false);
+    }
+    if (simulating) {
       if (modeController?.isDriveClockRunning() ?? true) driveTime += wallElapsed;
       player.update(elapsed);
       modeController?.update(elapsed);
@@ -918,8 +995,14 @@ export function startDrivingGame(root: HTMLElement, options: DrivingGameOptions 
     updateCamera(elapsed);
     updatePlayerCenteredShadows();
     updateSpeedLines(wallElapsed);
-    renderer.render(scene, activeCamera());
+    const camera = activeCamera();
+    if (simulating || renderRequested || cameraChangedSinceRender(camera)) {
+      renderRequested = false;
+      renderer.render(scene, camera);
+      rememberRenderedCamera(camera);
+    }
     updateMapDiagnostics(now);
+    lastFrameWork = performance.now() - workStarted;
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);

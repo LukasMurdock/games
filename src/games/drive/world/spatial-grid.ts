@@ -7,20 +7,25 @@ export type SpatialBounds = {
 
 export class SpatialGrid<T extends SpatialBounds> {
   readonly cellSize: number;
-  private readonly cells = new Map<string, T[]>();
+  private readonly cells = new Map<number, T[]>();
+  private readonly seen = new Set<T>();
 
   constructor(items: readonly T[], cellSize = 32) {
     this.cellSize = cellSize;
     items.forEach((item) => this.insert(item));
   }
 
-  query(minX: number, maxX: number, minZ: number, maxZ: number): T[] {
-    const result: T[] = [];
-    const seen = new Set<T>();
+  /** Returned arrays may be shared with the grid; callers must not mutate them. */
+  query(minX: number, maxX: number, minZ: number, maxZ: number): readonly T[] {
     const minCellX = Math.floor(minX / this.cellSize);
     const maxCellX = Math.floor(maxX / this.cellSize);
     const minCellZ = Math.floor(minZ / this.cellSize);
     const maxCellZ = Math.floor(maxZ / this.cellSize);
+    // Point and small-radius queries usually touch one cell, which needs neither copying nor de-duplication.
+    if (minCellX === maxCellX && minCellZ === maxCellZ) return this.cells.get(key(minCellX, minCellZ)) ?? EMPTY;
+    const result: T[] = [];
+    const seen = this.seen;
+    seen.clear();
     for (let cellX = minCellX; cellX <= maxCellX; cellX++) {
       for (let cellZ = minCellZ; cellZ <= maxCellZ; cellZ++) {
         const bucket = this.cells.get(key(cellX, cellZ));
@@ -32,14 +37,15 @@ export class SpatialGrid<T extends SpatialBounds> {
         }
       }
     }
+    seen.clear();
     return result;
   }
 
   getOccupiedCells() {
-    return [...this.cells.keys()].map((cellKey) => {
-      const [x, z] = cellKey.split(":").map(Number);
-      return { x, z };
-    });
+    return [...this.cells.keys()].map((cellKey) => ({
+      x: Math.floor(cellKey / KEY_SPAN) - KEY_OFFSET,
+      z: (cellKey % KEY_SPAN) - KEY_OFFSET,
+    }));
   }
 
   clear() {
@@ -62,6 +68,11 @@ export class SpatialGrid<T extends SpatialBounds> {
   }
 }
 
+const EMPTY: readonly never[] = [];
+// Cell coordinates stay far inside ±KEY_OFFSET for any map, so a packed integer is a unique, allocation-free key.
+const KEY_OFFSET = 1 << 20;
+const KEY_SPAN = KEY_OFFSET * 2;
+
 function key(x: number, z: number) {
-  return `${x}:${z}`;
+  return (x + KEY_OFFSET) * KEY_SPAN + (z + KEY_OFFSET);
 }

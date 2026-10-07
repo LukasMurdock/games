@@ -93,12 +93,16 @@ export function createDrivingAudioMixer(options: DrivingAudioMixerOptions = {}):
   let pendingTrack: SoundtrackId | null = null;
   let currentBar = 0;
   let previousTelemetryBar = -1;
+  let moduleLoading: Promise<boolean> | null = null;
   let loading: Promise<void> | null = null;
   let destroyed = false;
   let musicVolume = 0.58;
   let musicMuted = false;
+  // Only audible tracks own a running processor: the active track, plus the outgoing
+  // track for the length of a crossfade. Idle synths would otherwise burn audio-thread time.
   const nodes = new Map<SoundtrackId, AudioWorkletNode>();
   const trackGains = new Map<SoundtrackId, GainNode>();
+  const retireTimers = new Map<SoundtrackId, number>();
   let stemMix: Record<DrivingMusicStem, number> = {
     drums: 1,
     bass: 1,
@@ -113,26 +117,85 @@ export function createDrivingAudioMixer(options: DrivingAudioMixerOptions = {}):
     drift: 0,
     chaseTier: 0,
   };
+  let lastPresenceGain = Number.NaN;
+  let lastLowShelfGain = Number.NaN;
 
   function sendToAll(message: object) {
     nodes.forEach((node) => node.port.postMessage(message));
   }
 
+  function loadModule() {
+    if (moduleLoading) return moduleLoading;
+    const source = SOUNDTRACK_IDS.map((id) => SOUNDTRACKS[id].workletSource).join("\n");
+    const workletUrl = URL.createObjectURL(new Blob([source], { type: "text/javascript" }));
+    moduleLoading = context.audioWorklet.addModule(workletUrl).then(() => true, (error: unknown) => {
+      console.error("Gameplay music could not start.", error);
+      return false;
+    }).finally(() => URL.revokeObjectURL(workletUrl));
+    return moduleLoading;
+  }
+
+  function ensureNode(trackId: SoundtrackId) {
+    const retireTimer = retireTimers.get(trackId);
+    if (retireTimer !== undefined) {
+      window.clearTimeout(retireTimer);
+      retireTimers.delete(trackId);
+    }
+    const existing = nodes.get(trackId);
+    if (existing) return existing;
+    const definition = SOUNDTRACKS[trackId];
+    const node = new AudioWorkletNode(context, definition.processorName, {
+      numberOfInputs: 0,
+      numberOfOutputs: 1,
+      outputChannelCount: [2],
+    });
+    const gain = context.createGain();
+    gain.gain.value = trackId === activeTrack ? 1 : 0.0001;
+    node.connect(gain).connect(musicBus);
+    node.port.onmessage = ({ data }: MessageEvent<{ type?: string; bar?: number }>) => {
+      if (trackId !== activeTrack || data.type !== "telemetry" || typeof data.bar !== "number") return;
+      currentBar = data.bar;
+      if (pendingTrack && previousTelemetryBar >= 0 && data.bar !== previousTelemetryBar) {
+        crossfadeTo(pendingTrack, false);
+      }
+      previousTelemetryBar = data.bar;
+    };
+    nodes.set(trackId, node);
+    trackGains.set(trackId, gain);
+    node.port.postMessage({ type: "state", ...latestState });
+    node.port.postMessage({ type: "mix", stems: stemMix });
+    return node;
+  }
+
+  function releaseNode(trackId: SoundtrackId) {
+    retireTimers.delete(trackId);
+    const node = nodes.get(trackId);
+    node?.port.close();
+    node?.disconnect();
+    trackGains.get(trackId)?.disconnect();
+    nodes.delete(trackId);
+    trackGains.delete(trackId);
+  }
+
   function crossfadeTo(trackId: SoundtrackId, immediate: boolean) {
-    if (trackId === activeTrack || !nodes.has(trackId)) {
+    if (trackId === activeTrack || nodes.size === 0) {
       pendingTrack = null;
       return;
     }
     const previousTrack = activeTrack;
     const now = context.currentTime;
     const duration = immediate ? 0.04 : 4 * 60 / SOUNDTRACKS[trackId].bpm;
+    ensureNode(trackId).port.postMessage({ type: "seek", bar: 0 });
     const previousGain = trackGains.get(previousTrack);
     const nextGain = trackGains.get(trackId);
-    nodes.get(trackId)?.port.postMessage({ type: "seek", bar: 0 });
     if (previousGain) {
       previousGain.gain.cancelScheduledValues(now);
       previousGain.gain.setValueAtTime(previousGain.gain.value, now);
       previousGain.gain.linearRampToValueAtTime(0.0001, now + duration);
+      retireTimers.set(
+        previousTrack,
+        window.setTimeout(() => releaseNode(previousTrack), (duration + 0.25) * 1000),
+      );
     }
     if (nextGain) {
       nextGain.gain.cancelScheduledValues(now);
@@ -147,38 +210,15 @@ export function createDrivingAudioMixer(options: DrivingAudioMixerOptions = {}):
 
   function loadMusic() {
     if (loading) return loading;
-    const source = SOUNDTRACK_IDS.map((id) => SOUNDTRACKS[id].workletSource).join("\n");
-    const workletUrl = URL.createObjectURL(new Blob([source], { type: "text/javascript" }));
-    loading = context.audioWorklet.addModule(workletUrl).then(() => {
-      if (destroyed) return;
-      for (const trackId of SOUNDTRACK_IDS) {
-        const definition = SOUNDTRACKS[trackId];
-        const node = new AudioWorkletNode(context, definition.processorName, {
-          numberOfInputs: 0,
-          numberOfOutputs: 1,
-          outputChannelCount: [2],
-        });
-        const gain = context.createGain();
-        gain.gain.value = trackId === activeTrack ? 1 : 0.0001;
-        node.connect(gain).connect(musicBus);
-        node.port.onmessage = ({ data }: MessageEvent<{ type?: string; bar?: number }>) => {
-          if (trackId !== activeTrack || data.type !== "telemetry" || typeof data.bar !== "number") return;
-          currentBar = data.bar;
-          if (pendingTrack && previousTelemetryBar >= 0 && data.bar !== previousTelemetryBar) {
-            crossfadeTo(pendingTrack, false);
-          }
-          previousTelemetryBar = data.bar;
-        };
-        nodes.set(trackId, node);
-        trackGains.set(trackId, gain);
-        node.port.postMessage({ type: "state", ...latestState });
-        node.port.postMessage({ type: "mix", stems: stemMix });
-      }
-    }).catch((error: unknown) => {
-      console.error("Gameplay music could not start.", error);
-    }).finally(() => URL.revokeObjectURL(workletUrl));
+    loading = loadModule().then((loaded) => {
+      if (!loaded || destroyed) return;
+      ensureNode(activeTrack);
+    });
     return loading;
   }
+
+  // Compiling the processors needs no user gesture, so do it before the player presses start.
+  void loadModule();
 
   return {
     context,
@@ -188,12 +228,25 @@ export function createDrivingAudioMixer(options: DrivingAudioMixerOptions = {}):
       await loadMusic();
     },
     updateMusic(state) {
-      latestState = state;
-      sendToAll({ type: "state", ...latestState });
+      const changed = state.running !== latestState.running
+        || state.paused !== latestState.paused
+        || state.speed !== latestState.speed
+        || state.drift !== latestState.drift
+        || state.chaseTier !== latestState.chaseTier;
+      latestState = { ...state };
+      if (changed) sendToAll({ type: "state", ...latestState });
       const driftDuck = Math.max(0, Math.min(1, state.drift));
       const engineLoadProxy = Math.max(0, Math.min(1, state.speed));
-      musicPresence.gain.setTargetAtTime(-2.5 - driftDuck * 5.5, context.currentTime, 0.08);
-      musicLowShelf.gain.setTargetAtTime(-engineLoadProxy * 3, context.currentTime, 0.16);
+      const presenceGain = -2.5 - driftDuck * 5.5;
+      const lowShelfGain = -engineLoadProxy * 3;
+      if (!(Math.abs(presenceGain - lastPresenceGain) < 0.01)) {
+        lastPresenceGain = presenceGain;
+        musicPresence.gain.setTargetAtTime(presenceGain, context.currentTime, 0.08);
+      }
+      if (!(Math.abs(lowShelfGain - lastLowShelfGain) < 0.01)) {
+        lastLowShelfGain = lowShelfGain;
+        musicLowShelf.gain.setTargetAtTime(lowShelfGain, context.currentTime, 0.16);
+      }
     },
     setMusicVolume(volume) {
       musicVolume = Math.max(0, Math.min(1, volume));
@@ -240,10 +293,8 @@ export function createDrivingAudioMixer(options: DrivingAudioMixerOptions = {}):
     cue(name) { sendToAll({ type: "cue", name }); },
     destroy() {
       destroyed = true;
-      nodes.forEach((node) => node.disconnect());
-      trackGains.forEach((gain) => gain.disconnect());
-      nodes.clear();
-      trackGains.clear();
+      retireTimers.forEach((timer) => window.clearTimeout(timer));
+      [...nodes.keys()].forEach(releaseNode);
       void context.close();
     },
   };

@@ -464,7 +464,8 @@ async function testSinglePlayerDriving(browserInstance) {
   }
   const pauseMaps = page.locator("#pause-overlay [data-map-option]");
   if (await pauseMaps.count() !== 6) throw new Error("Single-player pause screen lost its map options.");
-  await page.click("#pause-overlay [data-map-option='crosswind']");
+  // The map selector is a carousel: only the selected map's button is visible.
+  await page.click("#pause-overlay [data-map-cycle='next']");
   await page.waitForFunction(
     () => document.querySelector("#driving-game")?.getAttribute("data-game-map") === "crosswind",
   );

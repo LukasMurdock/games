@@ -59,6 +59,8 @@ export type DrivingVehicleSimulation = {
   reset(): void;
   placeAt(x: number, z: number, heading: number): void;
   snapshot(): DrivingVehicleSnapshot;
+  /** Writes current state into `target` without allocating; for per-frame readers. */
+  readSnapshot(target: DrivingVehicleSnapshot): DrivingVehicleSnapshot;
   decayCameraShake(dt: number): void;
 };
 

@@ -18,6 +18,8 @@ function createWorld(overrides: Partial<WorldRuntime> = {}): WorldRuntime {
       pavementPrimitives: 0,
       junctions: 0,
       accessRoads: 0,
+      staticBatches: 0,
+      batchedSources: 0,
       collisionQueries: 0,
       collisionCandidates: 0,
       pavementQueries: 0,

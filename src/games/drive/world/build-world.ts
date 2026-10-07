@@ -15,6 +15,7 @@ import {
   type RoadMarkDefinition,
 } from "./roads";
 import { SpatialGrid } from "./spatial-grid";
+import { batchStaticMeshes } from "./static-batching";
 import type { Obstacle, WorldCollision, WorldDiagnostics, WorldRuntime } from "./types";
 
 export type { Obstacle, WorldRuntime } from "./types";
@@ -221,6 +222,7 @@ export function buildWorld(
   forEachSpatialChunk(map.streetlights, (points) => addStreetlightBatch(worldRoot, obstacles, points));
   forEachSpatialChunk(map.barriers, (points) => addBarrierBatch(worldRoot, obstacles, points));
   addSignBatch(worldRoot, obstacles, map.signs ?? []);
+  const staticBatches = batchStaticMeshes(worldRoot);
 
   let spawnPosition: THREE.Vector3;
   let spawnHeading: number;
@@ -263,12 +265,17 @@ export function buildWorld(
       })
     : null;
   if (debugLayers) worldRoot.add(debugLayers.root);
+  // Nothing in the world moves after construction; skip it during per-frame matrix updates.
+  worldRoot.updateMatrixWorld(true);
+  worldRoot.matrixWorldAutoUpdate = false;
   const diagnostics: WorldDiagnostics = {
     buildMilliseconds: performance.now() - buildStarted,
     obstacles: obstacles.length,
     pavementPrimitives: pavementPrimitives.length,
     junctions: corridorJunctions.length,
     accessRoads: roadSegments.filter((road) => road.role === "access").length,
+    staticBatches: staticBatches.batches,
+    batchedSources: staticBatches.sourceInstances,
     collisionQueries: 0,
     collisionCandidates: 0,
     pavementQueries: 0,

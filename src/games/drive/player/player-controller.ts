@@ -2,6 +2,7 @@ import * as THREE from "three";
 import type { CarAudioOptions } from "../audio/car-audio";
 import type { DrivingWorldQuery } from "../core/world-query";
 import type { DrivingProfile } from "../driving-profiles";
+import type { DrivingVehicleSnapshot } from "../simulation/types";
 import { createDrivingVehicleSimulation } from "../simulation/vehicle-simulation";
 import type { ControlMode, DriveEndReason } from "../types";
 import { createDrivingWorldQuery } from "../world/driving-world-query";
@@ -57,6 +58,17 @@ export function createPlayerController({
     cameraShake: 0,
     exitPulse: 0,
   };
+  const simulationState = {
+    position: { x: 0, z: 0 },
+    velocity: { x: 0, z: 0 },
+    heading: 0,
+    speed: 0,
+    visualSlip: 0,
+    driftPhase: "grip",
+    boosting: false,
+    cameraShake: 0,
+    exitPulse: 0,
+  } satisfies DrivingVehicleSnapshot as DrivingVehicleSnapshot;
   const simulation = createDrivingVehicleSimulation({
     world: worldQuery,
     profile,
@@ -113,7 +125,7 @@ export function createPlayerController({
     },
     setPaused: presentation.setPaused,
     getSnapshot() {
-      const state = simulation.snapshot();
+      const state = simulation.readSnapshot(simulationState);
       snapshot.position.set(state.position.x, 0.06, state.position.z);
       snapshot.velocity.set(state.velocity.x, 0, state.velocity.z);
       snapshot.heading = state.heading;

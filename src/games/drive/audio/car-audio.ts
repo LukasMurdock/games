@@ -60,6 +60,22 @@ export type CarAudio = {
   destroy: () => void;
 };
 
+const vehicleWorkletModules = new WeakMap<BaseAudioContext, Promise<void>>();
+
+/** Adds the engine and tire processors once per context. Safe before any user gesture. */
+export function preloadCarAudioWorklets(context: BaseAudioContext) {
+  let loading = vehicleWorkletModules.get(context);
+  if (!loading) {
+    const workletUrl = URL.createObjectURL(new Blob(
+      [ENGINE_WORKLET_SOURCE, "\n", TIRE_WORKLET_SOURCE],
+      { type: "text/javascript" },
+    ));
+    loading = context.audioWorklet.addModule(workletUrl).finally(() => URL.revokeObjectURL(workletUrl));
+    vehicleWorkletModules.set(context, loading);
+  }
+  return loading;
+}
+
 export function createCarAudio(
   DRIVING: DrivingProfile,
   options: CarAudioOptions = {},
@@ -147,14 +163,9 @@ export function createCarAudio(
   let engineNode: AudioWorkletNode | null = null;
   let tireNode: AudioWorkletNode | null = null;
   let audioDestroyed = false;
-  const workletUrl = URL.createObjectURL(new Blob(
-    [ENGINE_WORKLET_SOURCE, "\n", TIRE_WORKLET_SOURCE],
-    { type: "text/javascript" },
-  ));
   let resolveReady: () => void = () => undefined;
   const ready = new Promise<void>((resolve) => { resolveReady = resolve; });
-  void context.audioWorklet.addModule(workletUrl).then(() => {
-    URL.revokeObjectURL(workletUrl);
+  void preloadCarAudioWorklets(context).then(() => {
     if (audioDestroyed) return;
     engineNode = new AudioWorkletNode(context, "configurable-engine-order", {
       numberOfInputs: 0,
@@ -184,7 +195,7 @@ export function createCarAudio(
       phase: "grip",
       onPavement: true,
     });
-  }).catch(() => URL.revokeObjectURL(workletUrl)).finally(resolveReady);
+  }).catch(() => undefined).finally(resolveReady);
 
   let gear = 0;
   let pendingGear = 0;
